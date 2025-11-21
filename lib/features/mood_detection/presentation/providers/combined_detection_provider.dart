@@ -42,13 +42,13 @@ class CombinedDetectionProvider extends ChangeNotifier {
         _geminiService = geminiService;
 
   // ✅ FIXED: Face detection not in this provider, returning empty
-  List<Rect> get detectedFaces => []; 
+  List<Rect> get detectedFaces => [];
 
-  Map<String, double> get imageEmotions => _imageProvider.currentResult?.allEmotions ?? {};
+  Map<String, double> get imageEmotions =>
+      _imageProvider.currentResult?.allEmotions ?? {};
   List<double> get audioData => _audioProvider.audioData;
   Duration get recordingDuration => _audioProvider.recordingDuration;
   bool get hasAudioRecording => _audioProvider.hasRecording;
-
 
   Future<void> startCombinedAnalysis() async {
     if (!_isVisualEnabled && !_isAudioEnabled) return;
@@ -82,7 +82,8 @@ class CombinedDetectionProvider extends ChangeNotifier {
 
       if (_isFusionEnabled &&
           _imageProvider.currentResult != null &&
-          _audioProvider.lastResult != null) { // lastResult will be set by stopRecording()
+          _audioProvider.lastResult != null) {
+        // lastResult will be set by stopRecording()
         _performFusion();
       }
     } catch (e) {
@@ -127,13 +128,17 @@ class CombinedDetectionProvider extends ChangeNotifier {
 
     final fusedEmotions = <String, double>{};
     final allEmotions = <String>{};
-    allEmotions.addAll(imageResult.allEmotions.keys.map((k) => k.toLowerCase()));
-    allEmotions.addAll(audioResult.allEmotions.keys.map((k) => k.toLowerCase()));
+    allEmotions
+        .addAll(imageResult.allEmotions.keys.map((k) => k.toLowerCase()));
+    allEmotions
+        .addAll(audioResult.allEmotions.keys.map((k) => k.toLowerCase()));
 
     for (final emotion in allEmotions) {
       // Handle potential case mismatches (e.g., 'Happy' vs 'happy')
-      final imageValue = imageResult.allEmotions[emotion] ?? imageResult.allEmotions[emotion.capitalize()];
-      final audioValue = audioResult.allEmotions[emotion] ?? audioResult.allEmotions[emotion.capitalize()];
+      final imageValue = imageResult.allEmotions[emotion] ??
+          imageResult.allEmotions[emotion.capitalize()];
+      final audioValue = audioResult.allEmotions[emotion] ??
+          audioResult.allEmotions[emotion.capitalize()];
 
       final imageConfidence = imageValue ?? 0.0;
       final audioConfidence = audioValue ?? 0.0;

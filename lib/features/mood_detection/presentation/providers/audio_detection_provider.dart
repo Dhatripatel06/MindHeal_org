@@ -7,27 +7,31 @@ import 'package:mental_wellness_app/core/services/translation_service.dart';
 import 'package:mental_wellness_app/core/services/tts_service.dart';
 import 'package:mental_wellness_app/features/mood_detection/data/models/emotion_result.dart';
 import 'package:mental_wellness_app/features/mood_detection/data/services/wav2vec2_emotion_service.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class AudioDetectionProvider extends ChangeNotifier {
-  final Wav2Vec2EmotionService _emotionService = Wav2Vec2EmotionService.instance;
-  final LiveSpeechTranscriptionService _sttService = LiveSpeechTranscriptionService();
+  final Wav2Vec2EmotionService _emotionService =
+      Wav2Vec2EmotionService.instance;
+  final LiveSpeechTranscriptionService _sttService =
+      LiveSpeechTranscriptionService();
   final TranslationService _translationService = TranslationService();
   final GeminiAdviserService _geminiService = GeminiAdviserService();
   final TtsService _ttsService = TtsService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool _isInitialized = false;
   bool _isRecording = false;
   bool _isProcessing = false;
   bool _hasRecording = false;
-  
+
   EmotionResult? _lastResult;
   String? _friendlyResponse;
   String? _lastError;
   List<double> _audioData = [];
   Duration _recordingDuration = Duration.zero;
-  
+
   String _liveTranscribedText = "";
-  String? _lastRecordedFilePath; 
+  String? _lastRecordedFilePath;
   String _selectedLanguage = 'English';
 
   bool get isRecording => _isRecording;
@@ -46,8 +50,8 @@ class AudioDetectionProvider extends ChangeNotifier {
 
   // Get the user speech text for advice (formatted)
   String get userSpeechForAdvice {
-    if (_liveTranscribedText.isNotEmpty && 
-        !_liveTranscribedText.startsWith("(") && 
+    if (_liveTranscribedText.isNotEmpty &&
+        !_liveTranscribedText.startsWith("(") &&
         _liveTranscribedText.trim().isNotEmpty) {
       return _liveTranscribedText.trim();
     }
@@ -55,18 +59,22 @@ class AudioDetectionProvider extends ChangeNotifier {
   }
 
   // Language Code mapping
-  String get currentLangCode => _selectedLanguage == 'हिंदी' ? 'hi' : (_selectedLanguage == 'ગુજરાતી' ? 'gu' : 'en');
-  String get currentLocaleId => _selectedLanguage == 'हिंदी' ? 'hi_IN' : (_selectedLanguage == 'ગુજરાતી' ? 'gu_IN' : 'en_US');
+  String get currentLangCode => _selectedLanguage == 'हिंदी'
+      ? 'hi'
+      : (_selectedLanguage == 'ગુજરાતી' ? 'gu' : 'en');
+  String get currentLocaleId => _selectedLanguage == 'हिंदी'
+      ? 'hi_IN'
+      : (_selectedLanguage == 'ગુજરાતી' ? 'gu_IN' : 'en_US');
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     // Listeners
     _sttService.addListener(() {
       _liveTranscribedText = _sttService.liveWords;
       if (_mounted) notifyListeners();
     });
-    
+
     _emotionService.audioDataStream.listen((data) {
       _audioData = data;
       if (_mounted) notifyListeners();
@@ -76,7 +84,7 @@ class AudioDetectionProvider extends ChangeNotifier {
       _recordingDuration = duration;
       if (_mounted) notifyListeners();
     });
-    
+
     _isInitialized = true;
   }
 
@@ -90,13 +98,13 @@ class AudioDetectionProvider extends ChangeNotifier {
     _clearState();
     _isRecording = true;
     _isProcessing = false;
-    
+
     try {
       await _emotionService.startRecording();
-      try { 
-        await _sttService.startListening(currentLocaleId); 
-      } catch (e) { 
-        print("STT Warning: $e"); 
+      try {
+        await _sttService.startListening(currentLocaleId);
+      } catch (e) {
+        print("STT Warning: $e");
       }
       notifyListeners();
     } catch (e) {
@@ -116,11 +124,11 @@ class AudioDetectionProvider extends ChangeNotifier {
       // 1. Stop Audio
       File? audioFile = await _emotionService.stopRecording();
       await _sttService.stopListening();
-      
+
       if (audioFile != null) {
         _hasRecording = true;
         _lastRecordedFilePath = audioFile.path;
-        
+
         // 2. Get Text
         String userText = _sttService.finalText;
         if (userText.isEmpty) userText = _liveTranscribedText;
@@ -142,26 +150,29 @@ class AudioDetectionProvider extends ChangeNotifier {
   }
 
   // 🔥 THE REALITY LOGIC 🔥
-  Future<void> _processFriendPipeline(File audioFile, String originalText) async {
+  Future<void> _processFriendPipeline(
+      File audioFile, String originalText) async {
     try {
       print('🔄 Starting emotion detection pipeline...');
       print('📁 Audio file: ${audioFile.path}');
       print('📝 Original text: "$originalText"');
-      
+
       // A. Detect Tone (Emotion) from Audio
       print('🎯 Calling emotion analysis...');
       _lastResult = await _emotionService.analyzeAudio(audioFile);
       String detectedEmotion = _lastResult?.emotion ?? 'neutral';
-      
-      print('😊 Emotion detected: $detectedEmotion (confidence: ${_lastResult?.confidence})');
+
+      print(
+          '😊 Emotion detected: $detectedEmotion (confidence: ${_lastResult?.confidence})');
       if (_lastResult?.hasError == true) {
         print('❌ Emotion analysis error: ${_lastResult?.error}');
       }
-      
+
       // B. Translate Input to English (if needed)
       String englishText = originalText;
       if (currentLangCode != 'en') {
-        englishText = await _translationService.translate(originalText, from: currentLangCode, to: 'en');
+        englishText = await _translationService.translate(originalText,
+            from: currentLangCode, to: 'en');
       }
 
       // C. Consult Gemini (The Friend)
@@ -175,20 +186,19 @@ class AudioDetectionProvider extends ChangeNotifier {
       // D. Translate Response back to User Language
       String finalResponse = englishAdvice;
       if (currentLangCode != 'en') {
-        finalResponse = await _translationService.translate(englishAdvice, from: 'en', to: currentLangCode);
+        finalResponse = await _translationService.translate(englishAdvice,
+            from: 'en', to: currentLangCode);
       }
 
       _friendlyResponse = finalResponse;
-      
-      // E. Speak it out
-      await _ttsService.speak(finalResponse, currentLocaleId);
 
+      // Note: TTS removed from automatic pipeline - user can access via Advice dialog
     } catch (e) {
       print("Pipeline Failed: $e");
       _lastError = "Could not analyze: $e";
     }
   }
-  
+
   // Helper for file uploads
   Future<void> analyzeAudioFile(File audioFile) async {
     _clearState();
@@ -211,9 +221,15 @@ class AudioDetectionProvider extends ChangeNotifier {
     _recordingDuration = Duration.zero;
     _liveTranscribedText = "";
   }
-  
+
   void clearResults() => _clearState();
-  void clearRecording() => _clearState();
+  
+  void clearRecording() {
+    _clearState();
+    _hasRecording = false;
+    _lastRecordedFilePath = null;
+    if (_mounted) notifyListeners();
+  }
 
   /// Speak the provided advice text
   Future<void> speakAdvice([String? adviceText]) async {
@@ -242,13 +258,18 @@ class AudioDetectionProvider extends ChangeNotifier {
     }
 
     try {
-      // Simple playback implementation - could be enhanced with audio player
       print('Playing recording: $_lastRecordedFilePath');
-      // TODO: Implement actual audio playback if needed
-      // For now, just log the attempt
+      
+      // Use audio player to play the recorded file
+      await _audioPlayer.play(DeviceFileSource(_lastRecordedFilePath!));
+      
+      // Show success feedback
+      _lastError = null;
+      if (_mounted) notifyListeners();
     } catch (e) {
+      print('Failed to play recording: $e');
       _lastError = 'Failed to play recording: $e';
-      notifyListeners();
+      if (_mounted) notifyListeners();
     }
   }
 
@@ -258,20 +279,22 @@ class AudioDetectionProvider extends ChangeNotifier {
       throw Exception('No emotion result available');
     }
 
-    final textToAnalyze = customText ?? 
-                         (liveTranscribedText.isNotEmpty ? liveTranscribedText : "I shared an audio recording");
-    
+    final textToAnalyze = customText ??
+        (liveTranscribedText.isNotEmpty
+            ? liveTranscribedText
+            : "I shared an audio recording");
+
     try {
       final advice = await _geminiService.getConversationalAdvice(
         userSpeech: textToAnalyze,
         detectedEmotion: _lastResult!.emotion,
         language: _selectedLanguage,
       );
-      
+
       // Update the friendly response with fresh advice
       _friendlyResponse = advice;
       if (_mounted) notifyListeners();
-      
+
       return advice;
     } catch (e) {
       print('Failed to get fresh advice: $e');
@@ -280,9 +303,11 @@ class AudioDetectionProvider extends ChangeNotifier {
   }
 
   bool _mounted = true;
+  
   @override
   void dispose() {
     _mounted = false;
+    _audioPlayer.dispose();
     super.dispose();
   }
 }

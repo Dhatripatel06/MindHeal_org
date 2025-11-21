@@ -357,7 +357,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // Secondary Action Buttons
             Row(
               children: [
@@ -678,8 +678,8 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
       context: context,
       builder: (context) => AdviceDialog(
         emotionResult: result,
-        userSpeech: provider.userSpeechForAdvice.isNotEmpty 
-            ? provider.userSpeechForAdvice 
+        userSpeech: provider.userSpeechForAdvice.isNotEmpty
+            ? provider.userSpeechForAdvice
             : null,
       ),
     );

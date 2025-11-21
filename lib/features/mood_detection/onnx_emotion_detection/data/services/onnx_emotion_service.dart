@@ -121,7 +121,7 @@ class OnnxEmotionService {
 
     try {
       final preprocessedInput = await _preprocessImage(imageBytes);
-      
+
       // --- FIX 4: Use _runInference with the correct API ---
       final probabilities = await _runInference(preprocessedInput);
 
@@ -146,7 +146,8 @@ class OnnxEmotionService {
         processingTimeMs: stopwatch.elapsedMilliseconds,
       );
 
-      _logger.i('Emotion detected: ${result.emotion} (Raw: ${(maxEntry.value * 100).toStringAsFixed(1)}%, Scaled: ${(result.confidence * 100).toStringAsFixed(1)}%)');
+      _logger.i(
+          'Emotion detected: ${result.emotion} (Raw: ${(maxEntry.value * 100).toStringAsFixed(1)}%, Scaled: ${(result.confidence * 100).toStringAsFixed(1)}%)');
       return result;
     } catch (e, stackTrace) {
       _logger.e('❌ Emotion detection failed', error: e, stackTrace: stackTrace);
@@ -210,14 +211,14 @@ class OnnxEmotionService {
     }
     final results = <EmotionResult>[];
     final stopwatch = Stopwatch()..start();
-    _logger
-        .d('🎯 Starting batch detection for ${imageBytesList.length} images...');
+    _logger.d(
+        '🎯 Starting batch detection for ${imageBytesList.length} images...');
     for (int i = 0; i < imageBytesList.length; i++) {
       final result = await detectEmotions(imageBytesList[i]);
       results.add(result);
     }
-    _logger
-        .d('🎉 Batch processing completed in ${stopwatch.elapsedMilliseconds}ms');
+    _logger.d(
+        '🎉 Batch processing completed in ${stopwatch.elapsedMilliseconds}ms');
     return results;
   }
 
@@ -229,7 +230,8 @@ class OnnxEmotionService {
       final resized =
           img.copyResize(image, width: _inputWidth, height: _inputHeight);
 
-      final input = Float32List(1 * _inputChannels * _inputHeight * _inputWidth);
+      final input =
+          Float32List(1 * _inputChannels * _inputHeight * _inputWidth);
 
       int index = 0;
       for (int c = 0; c < _inputChannels; c++) {
@@ -291,20 +293,20 @@ class OnnxEmotionService {
       final outputValue = await outputs[outputNames.first]!.asList();
       final outputData = outputValue;
 
-        if (outputData.isEmpty || (outputData.first as List).isEmpty) {
-          throw Exception('Model output list is empty');
-        }
+      if (outputData.isEmpty || (outputData.first as List).isEmpty) {
+        throw Exception('Model output list is empty');
+      }
 
-        // Flatten and convert to List<double>
-        final probabilities =
-            (outputData.first as List).map((e) => e as double).toList();
+      // Flatten and convert to List<double>
+      final probabilities =
+          (outputData.first as List).map((e) => e as double).toList();
 
-        if (probabilities.length != _emotionClasses.length) {
-          _logger.e(
-              'Output mismatch: Model output ${probabilities.length} classes, but labels file has ${_emotionClasses.length}');
-          throw Exception('Model output size mismatch');
-        }
-        return probabilities;
+      if (probabilities.length != _emotionClasses.length) {
+        _logger.e(
+            'Output mismatch: Model output ${probabilities.length} classes, but labels file has ${_emotionClasses.length}');
+        throw Exception('Model output size mismatch');
+      }
+      return probabilities;
     } catch (e) {
       _logger.e('❌ ONNX inference failed', error: e);
       rethrow;
@@ -400,4 +402,3 @@ class PerformanceStats {
         'total: $totalInferences)';
   }
 }
-

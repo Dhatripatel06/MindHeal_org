@@ -31,20 +31,23 @@ List<double> _normalizeAudioTask(List<double> audio) {
 class Wav2Vec2EmotionService {
   final AudioRecorder _recorder = AudioRecorder();
   final AudioConverterService _converter = AudioConverterService();
-  
+
   OrtSession? _session;
   List<String>? _labels;
   bool _isInitialized = false;
   bool _isRecording = false;
   Timer? _timer;
-  
-  final StreamController<List<double>> _audioDataController = StreamController<List<double>>.broadcast();
-  final StreamController<Duration> _durationController = StreamController<Duration>.broadcast();
+
+  final StreamController<List<double>> _audioDataController =
+      StreamController<List<double>>.broadcast();
+  final StreamController<Duration> _durationController =
+      StreamController<Duration>.broadcast();
 
   Stream<List<double>> get audioDataStream => _audioDataController.stream;
   Stream<Duration> get recordingDurationStream => _durationController.stream;
 
-  static final Wav2Vec2EmotionService _instance = Wav2Vec2EmotionService._internal();
+  static final Wav2Vec2EmotionService _instance =
+      Wav2Vec2EmotionService._internal();
   factory Wav2Vec2EmotionService() => _instance;
   static Wav2Vec2EmotionService get instance => _instance;
   Wav2Vec2EmotionService._internal();
@@ -54,10 +57,13 @@ class Wav2Vec2EmotionService {
     try {
       print("🚀 Initializing Wav2Vec2 Pipeline...");
       final ort = OnnxRuntime();
-      _session = await ort.createSessionFromAsset('assets/models/wav2vec2_emotion.onnx');
-      
-      final labelsData = await rootBundle.loadString('assets/models/audio_emotion_labels.txt');
-      _labels = labelsData.split('\n')
+      _session = await ort
+          .createSessionFromAsset('assets/models/wav2vec2_emotion.onnx');
+
+      final labelsData =
+          await rootBundle.loadString('assets/models/audio_emotion_labels.txt');
+      _labels = labelsData
+          .split('\n')
           .where((l) => l.isNotEmpty)
           .map((l) => l.trim().toLowerCase())
           .toList();
@@ -74,10 +80,11 @@ class Wav2Vec2EmotionService {
     try {
       if (await _recorder.hasPermission()) {
         final tempDir = await getTemporaryDirectory();
-        final String path = '${tempDir.path}/temp_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
+        final String path =
+            '${tempDir.path}/temp_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
 
         const config = RecordConfig(
-          encoder: AudioEncoder.wav, 
+          encoder: AudioEncoder.wav,
           sampleRate: 16000,
           numChannels: 1,
         );
@@ -122,7 +129,8 @@ class Wav2Vec2EmotionService {
 
       try {
         final amp = await _recorder.getAmplitude();
-        final double normalized = pow(10, (amp.current / 20)).toDouble().clamp(0.0, 1.0);
+        final double normalized =
+            pow(10, (amp.current / 20)).toDouble().clamp(0.0, 1.0);
         _audioDataController.add(List.filled(20, normalized));
       } catch (_) {}
     });
@@ -137,14 +145,15 @@ class Wav2Vec2EmotionService {
     try {
       // 1. Format Check
       workingFile = await _converter.ensureWavFormat(audioFile);
-      
+
       // 2. Parse WAV
       final wav = await Wav.readFile(workingFile.path);
-      
+
       if (wav.channels.isEmpty) return EmotionResult.error("Empty audio file");
-      
+
       List<double> audioData = wav.channels[0].toList();
-      if (audioData.length < 1000) return EmotionResult.error("Audio too short");
+      if (audioData.length < 1000)
+        return EmotionResult.error("Audio too short");
 
       // 3. Normalization (Background Thread)
       audioData = await compute(_normalizeAudioTask, audioData);
@@ -152,7 +161,7 @@ class Wav2Vec2EmotionService {
       // 4. Inference
       final shape = [1, audioData.length];
       final inputTensor = await OrtValue.fromList(audioData, shape);
-      
+
       final inputName = _session!.inputNames.first;
       final inputs = {inputName: inputTensor};
 
@@ -162,9 +171,10 @@ class Wav2Vec2EmotionService {
       // 5. Process Outputs
       final outputKey = _session!.outputNames.first;
       final outputOrt = outputs[outputKey];
-      
+
       final rawOutputList = await outputOrt!.asList();
-      final logits = (rawOutputList[0] as List).map((e) => (e as num).toDouble()).toList();
+      final logits =
+          (rawOutputList[0] as List).map((e) => (e as num).toDouble()).toList();
 
       // Softmax
       final expScores = logits.map((s) => exp(s)).toList();
@@ -193,7 +203,7 @@ class Wav2Vec2EmotionService {
         } catch (e) {
           // Ignore deletion errors during cleanup
           print('Warning: Could not delete temporary file: $e');
-        } 
+        }
       }
 
       return EmotionResult(
@@ -203,7 +213,6 @@ class Wav2Vec2EmotionService {
         timestamp: DateTime.now(),
         processingTimeMs: DateTime.now().difference(startTime).inMilliseconds,
       );
-
     } catch (e) {
       print("❌ Analysis Error: $e");
       return EmotionResult.error("Analysis failed: ${e.toString()}");

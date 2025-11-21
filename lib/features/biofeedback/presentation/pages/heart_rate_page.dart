@@ -22,9 +22,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
   List<double> _waveformData = [];
   int _progress = 0;
   String _statusMessage = 'Place finger over camera and flash';
-  
+
   // final SignalProcessingService _signalProcessor = SignalProcessingService(); // Unused for now
-  
+
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late AnimationController _progressController;
@@ -32,12 +32,12 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
   @override
   void initState() {
     super.initState();
-    
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _pulseAnimation = Tween<double>(
       begin: 0.8,
       end: 1.2,
@@ -50,7 +50,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       duration: const Duration(seconds: 15),
       vsync: this,
     );
-    
+
     _initializeCamera();
   }
 
@@ -85,7 +85,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       );
 
       await _cameraController!.initialize();
-      
+
       setState(() {
         _isInitialized = true;
       });
@@ -115,16 +115,15 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
 
     try {
       await _cameraController!.setFlashMode(FlashMode.torch);
-      
+
       _pulseController.repeat(reverse: true);
-      
+
       _progressController.forward().then((_) {
         _completeMeasurement();
       });
 
       // Simulate measurement process
       _simulateMeasurement();
-      
     } catch (e) {
       setState(() {
         _statusMessage = 'Measurement failed: $e';
@@ -135,21 +134,21 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
 
   void _simulateMeasurement() {
     if (!_isMeasuring) return;
-    
+
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_isMeasuring) {
         setState(() {
           _progress = (_progressController.value * 100).toInt();
-          
+
           // Simulate realistic heart rate detection
           final baseRate = 70;
           final variation = (DateTime.now().millisecond % 20) - 10;
           final progressVariation = (_progress / 5).round();
           _currentBPM = baseRate + variation + progressVariation;
-          
+
           // Simulate confidence building
           _confidence = (_progress / 100).clamp(0.0, 1.0);
-          
+
           // Update status based on progress
           if (_progress < 30) {
             _statusMessage = 'Detecting signal...';
@@ -158,14 +157,15 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
           } else {
             _statusMessage = 'Finalizing measurement...';
           }
-          
+
           // Generate waveform data
-          _waveformData.add(_currentBPM.toDouble() + (DateTime.now().millisecond % 10 - 5));
+          _waveformData.add(
+              _currentBPM.toDouble() + (DateTime.now().millisecond % 10 - 5));
           if (_waveformData.length > 50) {
             _waveformData.removeAt(0);
           }
         });
-        
+
         _simulateMeasurement();
       }
     });
@@ -173,7 +173,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
 
   Future<void> _completeMeasurement() async {
     _pulseController.stop();
-    
+
     try {
       await _cameraController!.setFlashMode(FlashMode.off);
     } catch (e) {
@@ -190,7 +190,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       final provider = Provider.of<BiofeedbackProvider>(context, listen: false);
       provider.updateHeartRate(_currentBPM);
     }
-    
+
     // Show results
     _showResultsDialog();
   }
@@ -265,7 +265,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       _waveformData.clear();
       _statusMessage = 'Place finger over camera and flash';
     });
-    
+
     _progressController.reset();
   }
 
@@ -353,7 +353,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                         ? Stack(
                             children: [
                               CameraPreview(_cameraController!),
-                              
+
                               // Overlay with finger guidance
                               Container(
                                 color: Colors.black.withOpacity(0.7),
@@ -365,7 +365,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                                         animation: _pulseAnimation,
                                         builder: (context, child) {
                                           return Transform.scale(
-                                            scale: _isMeasuring ? _pulseAnimation.value : 1.0,
+                                            scale: _isMeasuring
+                                                ? _pulseAnimation.value
+                                                : 1.0,
                                             child: Container(
                                               width: 120,
                                               height: 120,
@@ -385,9 +387,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                                           );
                                         },
                                       ),
-                                      
                                       const SizedBox(height: 20),
-                                      
                                       Text(
                                         _statusMessage,
                                         style: const TextStyle(
@@ -409,7 +409,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                   ),
                 ),
               ),
-              
+
               // Measurements Display
               Expanded(
                 flex: 2,
@@ -437,9 +437,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 20),
-                      
+
                       // Progress Bar
                       if (_isMeasuring) ...[
                         AnimatedBuilder(
@@ -450,7 +450,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                                 LinearProgressIndicator(
                                   value: _progressController.value,
                                   backgroundColor: Colors.grey[800],
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                          Colors.red),
                                   minHeight: 8,
                                 ),
                                 const SizedBox(height: 10),
@@ -467,9 +469,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
                         ),
                         const SizedBox(height: 20),
                       ],
-                      
+
                       const Spacer(),
-                      
+
                       // Start/Stop Button
                       Container(
                         width: double.infinity,
