@@ -1,0 +1,27 @@
+# flutter_native_splash:
+#   # Background color - Modern gradient base
+#   color: "#6A5ACD"  # Slate Blue
+#   color_dark: "#483D8B"  # Dark Slate Blue for dark mode
+#   
+#   # Logo image
+#   image: assets/images/app_logo.png
+#   image_dark: assets/images/app_logo.png
+#   
+#   # Branding text
+#   android_12:
+#     image: assets/images/app_logo.png
+#     icon_background_color: "#6A5ACD"
+#     
+#   # Platform support
+#   android: true
+#   ios: true
+#   web: true
+#   
+#   # Display settings
+#   fullscreen: true
+#   
+#   # Animation settings
+#   android_gravity: center
+#   ios_content_mode: center
+
+# Splash screens have been disabled

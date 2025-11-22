@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="health_data.xml" />
+        <exclude domain="database" path="health_readings.db" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="sensitive_data.xml" />
+    </device-transfer>
+</data-extraction-rules>

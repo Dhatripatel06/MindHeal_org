@@ -1,0 +1,357 @@
+
+name: mental_wellness_app
+description: A comprehensive mental wellness application
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Core Firebase
+
+  firebase_core: ^4.1.1          
+  firebase_auth: ^6.1.0          
+  cloud_firestore: ^6.0.2       
+  google_sign_in: ^6.3.0
+  firebase_messaging: 16.0.4
+  
+  local_auth: ^2.1.6
+  local_auth_android: ^1.0.34
+  local_auth_ios: ^1.1.6
+  
+
+  percent_indicator: ^4.2.3
+  
+  # UI & Navigation
+  provider: ^6.1.1
+  fl_chart: ^1.1.1
+  lottie: ^3.3.0
+  animations: ^2.0.8
+  flutter_staggered_animations: ^1.1.1
+  
+  # Camera & Permissions
+  
+  camera: ^0.10.5+9
+  permission_handler: ^12.0.1
+  # Image processing (version needed for helper)
+  image: ^4.5.4
+  
+  # Utilities for emotion detection
+  logger: ^2.0.2+1
+  
+  # Audio & Sensors
+  http: ^1.2.1
+  mime: ^1.0.5
+  flutter_dotenv: ^5.1.0
+  
+  # Sensors & Health
+  sensors_plus: ^7.0.0
+  health: ^13.1.4
+  heart_bpm: ^2.0.0
+  
+  # Bluetooth & Watch Connectivity
+  flutter_blue_plus: ^1.14.5
+  
+  
+  # Utilities
+  intl: ^0.18.1
+  rxdart: ^0.28.0
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^7.0.0
+  device_info_plus: ^10.1.0
+  
+  
+  # Update Google ML Kit packages to latest compatible versions (for pose/face detection if needed)
+  google_mlkit_face_detection: ^0.13.1  # This version exists
+  google_mlkit_pose_detection: ^0.14.0 # This version exists
+  google_mlkit_commons: ^0.11.0
+  google_mlkit_translation: 0.13.0
+  
+  # flutter_tts: ^3.8.3
+  #librosa: ^0.1.6
+  # ML & Processing - Use tflite_v2 instead
+  #tflite_v2: ^1.0.0
+  #google_mlkit_face_detection: ^0.13.1
+  # For Text-to-Speech
+  # Add these lines
+  google_generative_ai: ^0.4.3 # Check pub.dev for the latest version
+  flutter_tts: ^4.0.2        # Check pub.dev for the latest version
+  translator: ^1.0.0
+  speech_to_text: ^7.3.0
+  
+  wav: ^1.2.0
+
+  just_audio: ^0.9.36
+  record: ^6.1.1
+  fftea: ^1.0.0
+  flutter_onnxruntime: ^1.5.2
+  audio_session: 0.1.25
+  audioplayers: ^6.5.0
+  flutter_sound: ^9.10.0
+  
+  
+  # File Operations
+  file_picker: ^10.3.3 # Added for file uploads
+  share_plus: ^12.0.0
+  image_picker: ^1.0.4  # Updated for compatibility
+  
+  
+  # Notifications
+  flutter_local_notifications: ^19.4.1
+  
+
+
+  sqflite: ^2.3.0
+  flutter_launcher_icons: ^0.14.4
+  firebase_app_check: ^0.4.1+2
+  # flutter_native_splash: ^2.2.16  # Removed - splash screens disabled
+  
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/images/
+    - assets/audio/
+    - assets/models/labels.txt
+    - assets/models/enet_b0_8_best_afew.onnx
+    - assets/models/wav2vec2_emotion.onnx
+    - assets/models/audio_emotion_labels.txt
+    - assets/animations/
+    - .env
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# name: mental_wellness_app
+# description: "A new Flutter project."
+# # The following line prevents the package from being accidentally published to
+# # pub.dev using `flutter pub publish`. This is preferred for private packages.
+# publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# # The following defines the version and build number for your application.
+# # A version number is three numbers separated by dots, like 1.2.43
+# # followed by an optional build number separated by a +.
+# # Both the version and the builder number may be overridden in flutter
+# # build by specifying --build-name and --build-number, respectively.
+# # In Android, build-name is used as versionName while build-number used as versionCode.
+# # Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# # In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# # Read more about iOS versioning at
+# # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# # In Windows, build-name is used as the major, minor, and patch parts
+# # of the product and file versions while build-number is used as the build suffix.
+# version: 1.0.0+1
+
+# environment:
+#     sdk: '>=3.0.0 <4.0.0'
+#     flutter: ">=3.13.0"
+# # Dependencies specify other packages that your package needs in order to work.
+# # To automatically upgrade your package dependencies to the latest versions
+# # consider running `flutter pub upgrade --major-versions`. Alternatively,
+# # dependencies can be manually updated by changing the version numbers below to
+# # the latest version available on pub.dev. To see which dependencies have newer
+# # versions available, run `flutter pub outdated`.
+
+
+# dependencies:
+#   flutter:
+#     sdk: flutter
+#   camera: ^0.10.5+5
+#   image: ^4.1.3
+#   tflite_flutter: ^0.11.0
+#   #speech_to_text: 6.1.1 
+#   # just_audio: ^0.9.39
+#   # sensors_plus: ^4.0.2
+
+#   # Audio & Sensors
+#   just_audio: ^0.9.36
+#   audio_session: ^0.1.16
+#   sensors_plus: ^4.0.2
+
+  
+#   sqflite: ^2.3.0
+#   shared_preferences: ^2.2.2
+#   path_provider: ^2.1.1
+#   permission_handler: ^11.3.1
+#   http: ^1.1.0
+#   provider: ^6.1.1
+#   flutter_bloc: ^8.1.3
+#   fl_chart: ^0.68.0  # For waveform display
+#   torch_light: ^1.0.0
+#   #flutter_torch: ^0.3.0
+
+#   health: ^10.2.0  # Latest version for Google Health Connect & Apple HealthKit
+
+#   # Smartwatch & Wearable Integration
+#   flutter_blue_plus: ^1.12.13  # For Bluetooth connectivity
+#   wear: ^1.1.0  # For Wear OS integration
+
+#    # Firebase
+#   firebase_core: ^2.24.2
+#   firebase_auth: ^4.15.3
+#   cloud_firestore: ^4.13.6
+#   google_sign_in: ^6.1.6
+  
+
+# dev_dependencies:
+#   flutter_test:
+#     sdk: flutter
+#   flutter_lints: ^3.0.0
+
+# flutter:
+#   uses-material-design: true
+#   assets:
+#     - assets/models/
+#     - assets/audio/
+#     - assets/images/
+
+
+
+
+# name: mental_wellness_app
+# description: A comprehensive mental wellness app with biofeedback, Google Fit, and smartwatch integration.
+# version: 1.0.0+1
+
+# environment:
+#   sdk: '>=3.0.0 <4.0.0'
+#   flutter: ">=3.13.0"
+
+# dependencies:
+#   flutter:
+#     sdk: flutter
+    
+#   # State Management
+#   provider: ^6.1.1
+  
+#  # Firebase
+#   # firebase_core: ^2.24.2
+#   # firebase_auth: ^4.15.3
+#   cloud_firestore: ^4.13.6
+#   firebase_auth: ^4.20.0
+#   firebase_core: ^2.32.0
+  
+#   # Authentication
+#   google_sign_in: ^6.2.1
+#   #google_sign_in: ^6.1.6
+#   local_auth: ^2.1.6
+#   local_auth_android: ^1.0.34
+#   local_auth_ios: ^1.1.6
+
+  
+  
+#   # Smartwatch & Wearable Integration
+#   # flutter_blue_plus: ^1.12.13  # For Bluetooth connectivity
+#   #wear: ^1.1.0  # For Wear OS integration
+  
+#   # Camera & PPG
+#   tflite_flutter: ^0.11.0
+  
+  
+#   torch_light: ^1.0.0
+
+#   # Add these for heart rate monitoring:
+#   camera: ^0.10.5+9
+#   permission_handler: ^11.3.1
+#   # cloud_firestore: ^4.17.3
+#   # firebase_auth: ^4.19.5
+#   fl_chart: ^0.68.0
+#   rxdart: ^0.27.7
+#   image: ^4.1.3
+  
+#   # Audio & Sensors
+#   just_audio: ^0.9.36
+#   audio_session: ^0.1.16
+#   sensors_plus: ^4.0.2
+  
+#   # Local Storage
+#   shared_preferences: ^2.2.2
+#   sqflite: ^2.3.0
+  
+  
+#   # UI & Charts
+#   # fl_chart: ^0.65.0
+#   lottie: ^2.7.0
+#   shimmer: ^3.0.0
+  
+#   # Utilities
+#   intl: ^0.18.1
+#   crypto: ^3.0.3
+#   path_provider: ^2.1.1
+  
+  
+#   # Network
+#   dio: ^5.4.0
+#   connectivity_plus: ^5.0.2
+
+#   # For smartwatch integration (when implementing real Bluetooth)
+#   flutter_blue_plus: ^1.14.5
+  
+ 
+
+# dev_dependencies:
+#   flutter_test:
+#     sdk: flutter
+#   flutter_lints: ^3.0.0
+
+# flutter:
+#   uses-material-design: true
+  
+#   assets:
+#     - assets/images/
+#     - assets/audio/
+#     - assets/models/
+#     - assets/data/

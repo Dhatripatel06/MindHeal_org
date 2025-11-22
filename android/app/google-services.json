@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "934484241138",
+    "project_id": "mental-wellness-app-64cb6",
+    "storage_bucket": "mental-wellness-app-64cb6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:934484241138:android:4f6596e1c6c0dd049afe6b",
+        "android_client_info": {
+          "package_name": "com.mentalwellness.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "934484241138-jvd3ve6p6h0or2kqbsgfs2ure837k675.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mentalwellness.app",
+            "certificate_hash": "15fe8c7189b3d8f8e11f1f5c99a363ad61cd0a94"
+          }
+        },
+        {
+          "client_id": "934484241138-klno99cg01iiildql4lfkpc76qh2bjqj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYCzmwiseZ19KpYqc3njrCCTDPJFavySY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "934484241138-klno99cg01iiildql4lfkpc76qh2bjqj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "934484241138-9jciehk3el5a3idfkb7fcd2ahoarcmal.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mentalwellness.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

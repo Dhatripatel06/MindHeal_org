@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="health_permissions">
+        <item>android.permission.health.READ_HEART_RATE</item>
+        <item>android.permission.health.WRITE_HEART_RATE</item>
+        <item>android.permission.health.READ_STEPS</item>
+        <item>android.permission.health.READ_DISTANCE</item>
+        <item>android.permission.health.READ_CALORIES_EXPENDED</item>
+        <item>android.permission.health.READ_SLEEP</item>
+        <item>android.permission.health.READ_EXERCISE</item>
+    </string-array>
+</resources>
