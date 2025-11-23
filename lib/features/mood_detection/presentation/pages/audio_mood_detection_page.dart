@@ -563,6 +563,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
       );
 
       if (result != null && result.files.single.path != null) {
+<<<<<<< HEAD
         final File file = File(result.files.single.path!);
         print('📁 Selected file: ${file.path}');
 
@@ -594,6 +595,10 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
 
         final provider = context.read<AudioDetectionProvider>();
         await provider.analyzeAudioFile(file);
+=======
+        final provider = context.read<AudioDetectionProvider>();
+        await provider.analyzeAudioFile(File(result.files.single.path!));
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
       }
     } catch (e) {
       _showError('Failed to pick audio file: $e');

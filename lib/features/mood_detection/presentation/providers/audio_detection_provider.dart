@@ -159,6 +159,7 @@ class AudioDetectionProvider extends ChangeNotifier {
 
       // A. Detect Tone (Emotion) from Audio
       print('🎯 Calling emotion analysis...');
+<<<<<<< HEAD
       String detectedEmotion = 'neutral';
       try {
         _lastResult = await _emotionService.analyzeAudio(audioFile);
@@ -174,6 +175,15 @@ class AudioDetectionProvider extends ChangeNotifier {
         _lastError = 'Audio analysis failed: $e';
         _lastResult = null;
         return;
+=======
+      _lastResult = await _emotionService.analyzeAudio(audioFile);
+      String detectedEmotion = _lastResult?.emotion ?? 'neutral';
+
+      print(
+          '😊 Emotion detected: $detectedEmotion (confidence: ${_lastResult?.confidence})');
+      if (_lastResult?.hasError == true) {
+        print('❌ Emotion analysis error: ${_lastResult?.error}');
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
       }
 
       // B. Translate Input to English (if needed)
@@ -210,6 +220,7 @@ class AudioDetectionProvider extends ChangeNotifier {
   // Helper for file uploads
   Future<void> analyzeAudioFile(File audioFile) async {
     _clearState();
+<<<<<<< HEAD
 
     print('🚀 Starting analyzeAudioFile with: ${audioFile.path}');
     print('📊 File exists: ${await audioFile.exists()}');
@@ -221,12 +232,15 @@ class AudioDetectionProvider extends ChangeNotifier {
       return;
     }
 
+=======
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
     _isProcessing = true;
     _hasRecording = true;
     _lastRecordedFilePath = audioFile.path;
     _liveTranscribedText = "(Uploaded File)";
     notifyListeners();
 
+<<<<<<< HEAD
     try {
       await _processFriendPipeline(audioFile, "I uploaded an audio file.");
       print('✅ Pipeline completed successfully');
@@ -234,6 +248,9 @@ class AudioDetectionProvider extends ChangeNotifier {
       print('❌ Pipeline failed: $e');
       _lastError = 'Processing failed: $e';
     }
+=======
+    await _processFriendPipeline(audioFile, "I uploaded an audio file.");
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
     _isProcessing = false;
     notifyListeners();
   }
@@ -248,7 +265,11 @@ class AudioDetectionProvider extends ChangeNotifier {
   }
 
   void clearResults() => _clearState();
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
   void clearRecording() {
     _clearState();
     _hasRecording = false;
@@ -284,10 +305,17 @@ class AudioDetectionProvider extends ChangeNotifier {
 
     try {
       print('Playing recording: $_lastRecordedFilePath');
+<<<<<<< HEAD
 
       // Use audio player to play the recorded file
       await _audioPlayer.play(UrlSource('file://$_lastRecordedFilePath'));
 
+=======
+      
+      // Use audio player to play the recorded file
+      await _audioPlayer.play(DeviceFileSource(_lastRecordedFilePath!));
+      
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
       // Show success feedback
       _lastError = null;
       if (_mounted) notifyListeners();
@@ -328,7 +356,11 @@ class AudioDetectionProvider extends ChangeNotifier {
   }
 
   bool _mounted = true;
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> fa1579f25fa1e75e62cc0d2cf1bea0415b0ae7a5
   @override
   void dispose() {
     _mounted = false;
