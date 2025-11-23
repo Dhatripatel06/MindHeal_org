@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:mime/mime.dart';
 import '../providers/audio_detection_provider.dart';
 import '../widgets/waveform_visualizer.dart';
 import '../widgets/advice_dialog.dart';
@@ -565,29 +564,31 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
 
       if (result != null && result.files.single.path != null) {
         final File file = File(result.files.single.path!);
+        print('📁 Selected file: ${file.path}');
 
-        // Validate picked file is actually an audio file (extension + mime)
-        final String? mimeType = lookupMimeType(file.path);
+        // Basic validation - only block obviously non-audio files
         final String extension = file.path.split('.').last.toLowerCase();
-        const allowedExt = [
-          'wav',
-          'mp3',
-          'm4a',
-          'aac',
-          'ogg',
-          'flac',
-          'wma',
-          'aif',
-          'aiff',
-          'mka'
+        const blockedExt = [
+          'pdf',
+          'doc',
+          'docx',
+          'txt',
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'bmp',
+          'mp4',
+          'avi',
+          'mov',
+          'zip',
+          'rar',
+          'exe'
         ];
 
-        final bool looksLikeAudio =
-            (mimeType != null && mimeType.startsWith('audio/')) ||
-                allowedExt.contains(extension);
-
-        if (!looksLikeAudio) {
-          _showError('Please select a valid audio file (mp3, wav, m4a, etc.).');
+        if (blockedExt.contains(extension)) {
+          _showError(
+              'Please select an audio file. Selected file type: .$extension');
           return;
         }
 

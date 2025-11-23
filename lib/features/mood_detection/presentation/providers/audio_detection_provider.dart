@@ -5,7 +5,6 @@ import 'package:mental_wellness_app/core/services/gemini_adviser_service.dart';
 import 'package:mental_wellness_app/core/services/live_speech_transcription_service.dart';
 import 'package:mental_wellness_app/core/services/translation_service.dart';
 import 'package:mental_wellness_app/core/services/tts_service.dart';
-import 'package:mime/mime.dart';
 import 'package:mental_wellness_app/features/mood_detection/data/models/emotion_result.dart';
 import 'package:mental_wellness_app/features/mood_detection/data/services/wav2vec2_emotion_service.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -160,13 +159,21 @@ class AudioDetectionProvider extends ChangeNotifier {
 
       // A. Detect Tone (Emotion) from Audio
       print('🎯 Calling emotion analysis...');
-      _lastResult = await _emotionService.analyzeAudio(audioFile);
-      String detectedEmotion = _lastResult?.emotion ?? 'neutral';
+      String detectedEmotion = 'neutral';
+      try {
+        _lastResult = await _emotionService.analyzeAudio(audioFile);
+        detectedEmotion = _lastResult?.emotion ?? 'neutral';
 
-      print(
-          '😊 Emotion detected: $detectedEmotion (confidence: ${_lastResult?.confidence})');
-      if (_lastResult?.hasError == true) {
-        print('❌ Emotion analysis error: ${_lastResult?.error}');
+        print(
+            '😊 Emotion detected: $detectedEmotion (confidence: ${_lastResult?.confidence})');
+        if (_lastResult?.hasError == true) {
+          print('❌ Emotion analysis error: ${_lastResult?.error}');
+        }
+      } catch (e) {
+        print('❌ Emotion service failed: $e');
+        _lastError = 'Audio analysis failed: $e';
+        _lastResult = null;
+        return;
       }
 
       // B. Translate Input to English (if needed)
@@ -204,28 +211,12 @@ class AudioDetectionProvider extends ChangeNotifier {
   Future<void> analyzeAudioFile(File audioFile) async {
     _clearState();
 
-    // Validate file looks like audio by MIME type or extension
-    final String? mimeType = lookupMimeType(audioFile.path);
-    final String extension = audioFile.path.split('.').last.toLowerCase();
-    const allowedExt = [
-      'wav',
-      'mp3',
-      'm4a',
-      'aac',
-      'ogg',
-      'flac',
-      'wma',
-      'aif',
-      'aiff',
-      'mka'
-    ];
+    print('🚀 Starting analyzeAudioFile with: ${audioFile.path}');
+    print('📊 File exists: ${await audioFile.exists()}');
 
-    final bool looksLikeAudio =
-        (mimeType != null && mimeType.startsWith('audio/')) ||
-            allowedExt.contains(extension);
-
-    if (!looksLikeAudio) {
-      _lastError = 'Uploaded file is not a supported audio file.';
+    // Basic check - ensure file exists
+    if (!await audioFile.exists()) {
+      _lastError = 'Selected file no longer exists.';
       if (_mounted) notifyListeners();
       return;
     }
@@ -236,7 +227,13 @@ class AudioDetectionProvider extends ChangeNotifier {
     _liveTranscribedText = "(Uploaded File)";
     notifyListeners();
 
-    await _processFriendPipeline(audioFile, "I uploaded an audio file.");
+    try {
+      await _processFriendPipeline(audioFile, "I uploaded an audio file.");
+      print('✅ Pipeline completed successfully');
+    } catch (e) {
+      print('❌ Pipeline failed: $e');
+      _lastError = 'Processing failed: $e';
+    }
     _isProcessing = false;
     notifyListeners();
   }
@@ -289,7 +286,7 @@ class AudioDetectionProvider extends ChangeNotifier {
       print('Playing recording: $_lastRecordedFilePath');
 
       // Use audio player to play the recorded file
-      await _audioPlayer.play(DeviceFileSource(_lastRecordedFilePath!));
+      await _audioPlayer.play(UrlSource('file://$_lastRecordedFilePath'));
 
       // Show success feedback
       _lastError = null;
