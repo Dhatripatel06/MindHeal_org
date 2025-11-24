@@ -12,7 +12,7 @@ class GeminiAdviserService {
 
   // Private constructor
   GeminiAdviserService._internal(this._apiKey) {
-    _modelName = 'gemini-1.5-flash-latest';
+    _modelName = 'gemini-2.5-flash-latest';
     _model = GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
@@ -96,7 +96,8 @@ class GeminiAdviserService {
     String? userName,
   }) {
     final languageInstruction = _getLanguageInstruction(language);
-    final userNameInfo = userName != null ? " The user's name is $userName." : "";
+    final userNameInfo =
+        userName != null ? " The user's name is $userName." : "";
 
     return '''
     You are MindHeal AI, a compassionate, warm, and wise virtual best friend and counselor.
@@ -194,14 +195,22 @@ Please provide your compassionate advice now:
 
   String _getEmotionSpecificGuidance(String emotion) {
     switch (emotion.toLowerCase()) {
-      case 'happy': return 'Help them savor this positive state.';
-      case 'sad': return 'Offer comfort and healthy coping mechanisms.';
-      case 'angry': return 'Suggest breathing techniques and safe processing.';
-      case 'fear': return 'Provide reassurance and grounding techniques.';
-      case 'surprise': return 'Help process unexpected events.';
-      case 'disgust': return 'Suggest healthy boundaries.';
-      case 'neutral': return 'Encourage self-reflection.';
-      default: return 'Provide general emotional support.';
+      case 'happy':
+        return 'Help them savor this positive state.';
+      case 'sad':
+        return 'Offer comfort and healthy coping mechanisms.';
+      case 'angry':
+        return 'Suggest breathing techniques and safe processing.';
+      case 'fear':
+        return 'Provide reassurance and grounding techniques.';
+      case 'surprise':
+        return 'Help process unexpected events.';
+      case 'disgust':
+        return 'Suggest healthy boundaries.';
+      case 'neutral':
+        return 'Encourage self-reflection.';
+      default:
+        return 'Provide general emotional support.';
     }
   }
 
@@ -228,12 +237,18 @@ Please provide your compassionate advice now:
     if (language == 'ગુજરાતી') return _getGujaratiFallbackAdvice(emotion);
 
     switch (emotion.toLowerCase()) {
-      case 'happy': return "What a wonderful moment! Savor this joy and maybe share it with someone you care about.";
-      case 'sad': return "I see you're having a tough time. It's okay to feel sad. Take deep breaths; this feeling will pass.";
-      case 'angry': return "I understand you're frustrated. Take deep breaths, count to ten, or take a walk to cool down.";
-      case 'fear': return "You are stronger than you know. Try the 5-4-3-2-1 grounding technique to center yourself.";
-      case 'surprise': return "Unexpected things happen! Take a moment to process your feelings and adapt.";
-      default: return "Your feelings are valid. Acknowledge them without judgment. You have the strength to navigate this.";
+      case 'happy':
+        return "What a wonderful moment! Savor this joy and maybe share it with someone you care about.";
+      case 'sad':
+        return "I see you're having a tough time. It's okay to feel sad. Take deep breaths; this feeling will pass.";
+      case 'angry':
+        return "I understand you're frustrated. Take deep breaths, count to ten, or take a walk to cool down.";
+      case 'fear':
+        return "You are stronger than you know. Try the 5-4-3-2-1 grounding technique to center yourself.";
+      case 'surprise':
+        return "Unexpected things happen! Take a moment to process your feelings and adapt.";
+      default:
+        return "Your feelings are valid. Acknowledge them without judgment. You have the strength to navigate this.";
     }
   }
 
@@ -253,5 +268,77 @@ Please provide your compassionate advice now:
     } catch (e) {
       return false;
     }
+  }
+
+  /// Get personalized chat response with user's wellness history
+  Future<String> getChatResponse({
+    required String userMessage,
+    String? wellnessContext,
+    String language = 'English',
+  }) async {
+    if (!isConfigured) {
+      log('❌ Service not configured. Returning fallback response.');
+      return "I understand you want to talk, but I'm having some connectivity issues right now. Can you tell me more about how you're feeling?";
+    }
+
+    try {
+      log('🤖 Getting chat response for: "$userMessage"');
+
+      final prompt = _buildChatPrompt(
+        userMessage: userMessage,
+        context: wellnessContext,
+        language: language,
+      );
+
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+
+      if (response.text != null && response.text!.isNotEmpty) {
+        log('✅ Chat response generated successfully');
+        return response.text!.trim();
+      } else {
+        log('⚠️ Empty response from model');
+        return "I'm listening to you, but I'm having trouble finding the right words right now. Can you share more about what's on your mind?";
+      }
+    } catch (e) {
+      log('❌ Error getting chat response: $e');
+      return "I want to help, but I'm experiencing some technical difficulties. Please tell me more about what you're going through.";
+    }
+  }
+
+  /// Build chat prompt with wellness context
+  String _buildChatPrompt({
+    required String userMessage,
+    String? context,
+    String language = 'English',
+  }) {
+    return '''
+You are a compassionate AI wellness counselor and supportive friend named Luna. You have access to the user's recent wellness data to provide personalized, empathetic support.
+
+User's Message: "$userMessage"
+
+${context ?? ''}
+
+Your Role:
+- Be warm, understanding, and genuinely caring
+- Act as both a professional counselor and a supportive friend
+- Reference their wellness patterns when relevant and helpful
+- Provide practical advice and coping strategies
+- Ask thoughtful follow-up questions
+- Suggest relaxation or mindfulness techniques when appropriate
+- Validate their feelings and experiences
+- Be encouraging and hopeful
+
+Guidelines:
+- Keep responses conversational and natural (2-3 paragraphs max)
+- Speak in $language
+- Use "I" statements to show empathy ("I understand", "I can see")
+- Avoid being overly clinical or formal
+- If they seem distressed, prioritize emotional support over advice
+- If wellness data shows concerning patterns, gently address them
+- Always end with encouragement or a supportive question
+
+Respond as Luna, their caring AI wellness companion.
+''';
   }
 }

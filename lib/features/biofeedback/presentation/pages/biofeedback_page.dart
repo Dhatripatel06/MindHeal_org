@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/biofeedback_provider.dart';
 import 'heart_rate_page.dart';
 import 'smartwatch_connection_page.dart';
+import '../../../../core/services/firestore_service.dart';
+import '../../../../shared/models/heart_rate_measurement.dart';
 
 class BiofeedbackPage extends StatefulWidget {
   const BiofeedbackPage({super.key});
@@ -19,6 +22,8 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
   late Animation<double> _pulseAnimation;
   late AnimationController _breathingController;
   late Animation<double> _breathingAnimation;
+
+  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void initState() {
@@ -256,56 +261,70 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
       child: SlideAnimation(
         verticalOffset: 50.0,
         child: FadeInAnimation(
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-            childAspectRatio: 1.1,
-            children: [
-              _buildMetricCard(
-                context,
-                'Heart Rate',
-                provider.currentData != null
-                    ? provider.currentData!.heartRate.toString()
-                    : '--',
-                'BPM',
-                Icons.favorite,
-                Colors.red,
-                onTap: () => _navigateToHeartRateMonitor(),
-              ),
-              _buildMetricCard(
-                context,
-                'Stress Level',
-                provider.currentData != null
-                    ? '${(provider.currentData!.stressLevel * 100).toInt()}'
-                    : '--',
-                '%',
-                Icons.psychology,
-                Colors.orange,
-              ),
-              _buildMetricCard(
-                context,
-                'HRV Score',
-                provider.currentData != null
-                    ? provider.currentData!.hrvScore.toString()
-                    : '--',
-                'ms',
-                Icons.timeline,
-                Colors.blue,
-              ),
-              _buildMetricCard(
-                context,
-                'Breathing',
-                provider.currentData != null
-                    ? provider.currentData!.breathingRate.toString()
-                    : '--',
-                '/min',
-                Icons.air,
-                Colors.teal,
-              ),
-            ],
+          child: StreamBuilder<List<HeartRateMeasurement>>(
+            stream: _firestoreService.getBiofeedbackHistory(),
+            builder: (context, snapshot) {
+              // Get the latest measurement or use placeholder data
+              final latestMeasurement =
+                  snapshot.hasData && snapshot.data!.isNotEmpty
+                      ? snapshot.data!.first
+                      : null;
+
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 1.1,
+                children: [
+                  _buildMetricCard(
+                    context,
+                    'Heart Rate',
+                    latestMeasurement != null
+                        ? latestMeasurement.bpm.toString()
+                        : '--',
+                    'BPM',
+                    Icons.favorite,
+                    Colors.red,
+                    onTap: () => _navigateToHeartRateMonitor(),
+                  ),
+                  _buildMetricCard(
+                    context,
+                    'Stress Level',
+                    latestMeasurement != null
+                        ? '${_calculateStressLevel(latestMeasurement.bpm)}'
+                        : '--',
+                    '%',
+                    Icons.psychology,
+                    Colors.orange,
+                    onTap: () => _showStressLevelInfo(),
+                  ),
+                  _buildMetricCard(
+                    context,
+                    'HRV Score',
+                    latestMeasurement != null
+                        ? '${_calculateHRVScore(latestMeasurement.bpm)}'
+                        : '--',
+                    'ms',
+                    Icons.timeline,
+                    Colors.blue,
+                    onTap: () => _showHRVInfo(),
+                  ),
+                  _buildMetricCard(
+                    context,
+                    'Breathing',
+                    latestMeasurement != null
+                        ? '${_calculateBreathingRate(latestMeasurement.bpm)}'
+                        : '--',
+                    '/min',
+                    Icons.air,
+                    Colors.teal,
+                    onTap: () => _showBreathingExercise(),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -776,7 +795,7 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final bpm = int.tryParse(controller.text);
               if (bpm != null && bpm >= 30 && bpm <= 220) {
                 Navigator.of(context).pop();
@@ -785,6 +804,9 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
                 final provider =
                     Provider.of<BiofeedbackProvider>(context, listen: false);
                 provider.updateHeartRate(bpm);
+
+                // Save to Firestore
+                await _saveManualMeasurementToFirestore(bpm);
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -882,6 +904,444 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
       const SnackBar(
         content: Text('Opening biometric history...'),
         backgroundColor: Colors.purple,
+      ),
+    );
+  }
+
+  Future<void> _saveManualMeasurementToFirestore(int bpm) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // User not authenticated - show message but continue
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved locally. Sign in to sync across devices.'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
+
+      final measurement = HeartRateMeasurement(
+        userId: user.uid,
+        bpm: bpm,
+        timestamp: DateTime.now(),
+        method: MeasurementMethod.manual,
+        confidenceScore: 0.99, // Manual entry is 99% confident
+      );
+
+      await _firestoreService.saveBiofeedback(measurement);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Manual entry saved: $bpm BPM'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'View History',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pushNamed(context, '/history');
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving measurement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildRecentMeasurementsSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2196F3).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.timeline,
+                    color: Color(0xFF2196F3),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recent Measurements',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                      ),
+                      Text(
+                        'Last 5 measurements from Firestore',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/history'),
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            StreamBuilder<List<HeartRateMeasurement>>(
+              stream: _firestoreService.getBiofeedbackHistory(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Error loading data: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final measurements = snapshot.data ?? [];
+                if (measurements.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No measurements found. Start by taking a measurement!',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Show only the first 5 measurements
+                final recentMeasurements = measurements.take(5).toList();
+
+                return Column(
+                  children: recentMeasurements.map((measurement) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Method Icon
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _getMethodColor(measurement.method)
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _getMethodIcon(measurement.method),
+                              color: _getMethodColor(measurement.method),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // BPM and Time
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${measurement.bpm} BPM',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  _formatTimestamp(measurement.timestamp),
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Method Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getMethodColor(measurement.method)
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _getMethodDisplayName(measurement.method),
+                              style: TextStyle(
+                                color: _getMethodColor(measurement.method),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getMethodIcon(MeasurementMethod method) {
+    switch (method) {
+      case MeasurementMethod.camera:
+        return Icons.camera_alt;
+      case MeasurementMethod.manual:
+        return Icons.edit;
+      case MeasurementMethod.smartwatch:
+        return Icons.watch;
+    }
+  }
+
+  Color _getMethodColor(MeasurementMethod method) {
+    switch (method) {
+      case MeasurementMethod.camera:
+        return const Color(0xFF4CAF50);
+      case MeasurementMethod.manual:
+        return const Color(0xFF2196F3);
+      case MeasurementMethod.smartwatch:
+        return const Color(0xFF9C27B0);
+    }
+  }
+
+  String _getMethodDisplayName(MeasurementMethod method) {
+    switch (method) {
+      case MeasurementMethod.camera:
+        return 'CAMERA';
+      case MeasurementMethod.manual:
+        return 'MANUAL';
+      case MeasurementMethod.smartwatch:
+        return 'WATCH';
+    }
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours} hr ago';
+    } else {
+      return '${difference.inDays} days ago';
+    }
+  }
+
+  // Calculate stress level based on heart rate
+  int _calculateStressLevel(int bpm) {
+    // Simple stress calculation based on heart rate ranges
+    if (bpm < 60) {
+      return 15; // Very low stress
+    } else if (bpm < 80) {
+      return 25; // Low stress
+    } else if (bpm < 100) {
+      return 50; // Moderate stress
+    } else if (bpm < 120) {
+      return 75; // High stress
+    } else {
+      return 90; // Very high stress
+    }
+  }
+
+  // Calculate HRV score based on heart rate
+  int _calculateHRVScore(int bpm) {
+    // Simplified HRV calculation (inverse relationship with HR)
+    // Normal HRV ranges from 20-100ms
+    if (bpm < 60) {
+      return 85;
+    } else if (bpm < 80) {
+      return 65;
+    } else if (bpm < 100) {
+      return 45;
+    } else {
+      return 25;
+    }
+  }
+
+  // Calculate breathing rate based on heart rate
+  int _calculateBreathingRate(int bpm) {
+    // Normal breathing rate correlates with heart rate
+    return (bpm / 4).round().clamp(12, 25);
+  }
+
+  // Show stress level information
+  void _showStressLevelInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Stress Level Info'),
+        content: const Text(
+            'Your stress level is calculated based on your heart rate patterns. '
+            'Lower heart rates typically indicate lower stress levels.\n\n'
+            'Tips to reduce stress:\n'
+            '• Practice deep breathing\n'
+            '• Try meditation\n'
+            '• Get adequate sleep\n'
+            '• Regular exercise'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show HRV information
+  void _showHRVInfo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('HRV Score Info'),
+        content: const Text(
+            'Heart Rate Variability (HRV) measures the variation in time between heartbeats. '
+            'Higher HRV generally indicates better cardiovascular fitness and stress resilience.\n\n'
+            'Typical ranges:\n'
+            '• Excellent: 80-100ms\n'
+            '• Good: 60-79ms\n'
+            '• Average: 40-59ms\n'
+            '• Below Average: 20-39ms'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show breathing exercise
+  void _showBreathingExercise() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Breathing Exercise'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Try the 4-7-8 breathing technique:\n\n'
+              '1. Inhale for 4 counts\n'
+              '2. Hold for 7 counts\n'
+              '3. Exhale for 8 counts\n'
+              '4. Repeat 3-4 times\n\n'
+              'This helps activate your parasympathetic nervous system and reduce stress.',
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                // Navigate to breathing exercise page if you have one
+                _startBreathingExercise();
+              },
+              icon: const Icon(Icons.air),
+              label: const Text('Start Exercise'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

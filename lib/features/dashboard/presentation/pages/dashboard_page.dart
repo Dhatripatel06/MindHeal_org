@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:mental_wellness_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/services/firestore_service.dart';
+import '../../../../shared/models/heart_rate_measurement.dart';
+import '../../../mood_detection/data/models/emotion_result.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
@@ -134,24 +144,53 @@ class DashboardPage extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Stress Level',
-                    '32%',
-                    Icons.psychology,
-                    Colors.orange,
-                    'Low',
+                  child: StreamBuilder<List<HeartRateMeasurement>>(
+                    stream: _firestoreService.getBiofeedbackHistory(),
+                    builder: (context, snapshot) {
+                      final latestBPM =
+                          snapshot.hasData && snapshot.data!.isNotEmpty
+                              ? snapshot.data!.first
+                              : null;
+
+                      return _buildMetricCard(
+                        context,
+                        'Stress Level',
+                        latestBPM != null
+                            ? '${_calculateStressLevel(latestBPM.bpm)}%'
+                            : '--',
+                        Icons.psychology,
+                        Colors.orange,
+                        latestBPM != null
+                            ? _getStressStatus(latestBPM.bpm)
+                            : 'No data',
+                        onTap: () => _showStressInfo(),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Heart Rate',
-                    '72 BPM',
-                    Icons.favorite,
-                    Colors.red,
-                    'Normal',
+                  child: StreamBuilder<List<HeartRateMeasurement>>(
+                    stream: _firestoreService.getBiofeedbackHistory(),
+                    builder: (context, snapshot) {
+                      final latestBPM =
+                          snapshot.hasData && snapshot.data!.isNotEmpty
+                              ? snapshot.data!.first
+                              : null;
+
+                      return _buildMetricCard(
+                        context,
+                        'Heart Rate',
+                        latestBPM != null ? '${latestBPM.bpm} BPM' : '-- BPM',
+                        Icons.favorite,
+                        Colors.red,
+                        latestBPM != null
+                            ? _getHeartRateStatus(latestBPM.bpm)
+                            : 'No data',
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/biofeedback'),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -162,24 +201,51 @@ class DashboardPage extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Mood Score',
-                    '7.2/10',
-                    Icons.mood,
-                    Colors.green,
-                    'Good',
+                  child: StreamBuilder<List<EmotionResult>>(
+                    stream: _firestoreService.getMoodHistory(),
+                    builder: (context, snapshot) {
+                      final latestMood =
+                          snapshot.hasData && snapshot.data!.isNotEmpty
+                              ? snapshot.data!.first
+                              : null;
+
+                      return _buildMetricCard(
+                        context,
+                        'Mood Score',
+                        latestMood != null
+                            ? '${(latestMood.confidence * 10).toStringAsFixed(1)}/10'
+                            : '--/10',
+                        Icons.mood,
+                        Colors.green,
+                        latestMood?.emotion ?? 'No data',
+                        onTap: () => _showMoodInfo(),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildMetricCard(
-                    context,
-                    'Sleep Quality',
-                    '85%',
-                    Icons.bedtime,
-                    Colors.purple,
-                    'Excellent',
+                  child: StreamBuilder<List<EmotionResult>>(
+                    stream: _firestoreService.getMoodHistory(),
+                    builder: (context, snapshot) {
+                      final latestMood =
+                          snapshot.hasData && snapshot.data!.isNotEmpty
+                              ? snapshot.data!.first
+                              : null;
+
+                      return _buildMetricCard(
+                        context,
+                        'Latest Mood',
+                        latestMood?.emotion ?? '--',
+                        Icons.sentiment_satisfied,
+                        _getMoodColor(latestMood?.emotion),
+                        latestMood != null
+                            ? '${(latestMood.confidence * 100).toInt()}% confident'
+                            : 'No data',
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/mood-detection'),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -206,27 +272,31 @@ class DashboardPage extends StatelessWidget {
               children: [
                 _buildActionCard(
                   context,
-                  'Breathing Exercise',
-                  Icons.air,
+                  'Mood Tracking',
+                  Icons.psychology,
                   Theme.of(context).colorScheme.primary,
+                  '/mood-tracking',
                 ),
                 _buildActionCard(
                   context,
-                  'Meditation',
-                  Icons.self_improvement,
-                  Theme.of(context).colorScheme.secondary,
+                  'Heart Rate',
+                  Icons.favorite,
+                  Colors.red,
+                  '/biofeedback',
                 ),
                 _buildActionCard(
                   context,
-                  'Mood Journal',
-                  Icons.book,
+                  'Wellness History',
+                  Icons.history,
                   Theme.of(context).colorScheme.tertiary,
+                  '/history',
                 ),
                 _buildActionCard(
                   context,
                   'Wellness Chat',
                   Icons.chat,
                   Colors.teal,
+                  '/chat',
                 ),
               ],
             ),
@@ -236,9 +306,10 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Future<void> _showLogoutDialog(BuildContext context, AuthProvider authProvider) async {
+  Future<void> _showLogoutDialog(
+      BuildContext context, AuthProvider authProvider) async {
     return showDialog(
-      context: context,
+      context: this.context,
       builder: (context) => AlertDialog(
         title: const Text('Sign Out'),
         content: const Text('Are you sure you want to sign out?'),
@@ -262,35 +333,38 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
-  Widget _buildMoodButton(BuildContext context, String emoji, String label) {
-    return Expanded(
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.grey[100],
-          ),
-          child: Column(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 24)),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
+Widget _buildMoodButton(BuildContext context, String emoji, String label) {
+  return Expanded(
+    child: InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey[100],
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildMetricCard(BuildContext context, String title, String value,
-      IconData icon, Color color, String status) {
-    return Card(
+Widget _buildMetricCard(BuildContext context, String title, String value,
+    IconData icon, Color color, String status,
+    {VoidCallback? onTap}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -326,33 +400,116 @@ class DashboardPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildActionCard(
-      BuildContext context, String title, IconData icon, Color color) {
-    return Card(
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-              ),
-            ],
-          ),
+void _showStressInfo() {
+  // Info displayed through console for now
+  // Stress level calculated from heart rate patterns
+  print('=== STRESS LEVEL INFO ===');
+  print('Tips to manage stress:');
+  print('• Practice deep breathing');
+  print('• Try meditation');
+  print('• Get adequate sleep');
+  print('• Regular exercise');
+}
+
+void _showMoodInfo() {
+  // Info displayed through console for now
+  // Based on latest emotion detection results
+  print('=== MOOD TRACKING INFO ===');
+  print('Track your mood regularly to:');
+  print('• Identify patterns');
+  print('• Monitor progress');
+  print('• Get personalized insights');
+  print('• Improve mental wellness');
+}
+
+Widget _buildActionCard(BuildContext context, String title, IconData icon,
+    Color color, String route) {
+  return Card(
+    child: InkWell(
+      onTap: () {
+        Navigator.pushNamed(context, route);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
+// Calculate stress level based on heart rate
+int _calculateStressLevel(int bpm) {
+  if (bpm < 60) {
+    return 15;
+  } else if (bpm < 80) {
+    return 25;
+  } else if (bpm < 100) {
+    return 50;
+  } else if (bpm < 120) {
+    return 75;
+  } else {
+    return 90;
+  }
+}
+
+String _getStressStatus(int bpm) {
+  final stress = _calculateStressLevel(bpm);
+  if (stress < 30) {
+    return 'Low';
+  } else if (stress < 60) {
+    return 'Moderate';
+  } else {
+    return 'High';
+  }
+}
+
+String _getHeartRateStatus(int bpm) {
+  if (bpm < 60) {
+    return 'Below Normal';
+  } else if (bpm <= 100) {
+    return 'Normal';
+  } else {
+    return 'Elevated';
+  }
+}
+
+Color _getMoodColor(String? emotion) {
+  switch (emotion?.toLowerCase()) {
+    case 'happy':
+    case 'joy':
+      return Colors.green;
+    case 'sad':
+    case 'sadness':
+      return Colors.blue;
+    case 'angry':
+    case 'anger':
+      return Colors.red;
+    case 'fear':
+    case 'anxiety':
+      return Colors.orange;
+    case 'surprise':
+      return Colors.purple;
+    case 'neutral':
+      return Colors.grey;
+    default:
+      return Colors.teal;
+  }
+}

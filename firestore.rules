@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==== USERS COLLECTION ====
+    // Allow users to read/write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // ==== BIOFEEDBACK SUBCOLLECTION ====
+      // Allow users to read/write their own biofeedback data
+      match /biofeedback/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // Additional validation for write operations
+        allow create: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidBiofeedbackData(request.resource.data);
+        
+        allow update: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidBiofeedbackData(request.resource.data);
+      }
+      
+      // ==== MOOD SESSIONS SUBCOLLECTION ====  
+      // Allow users to read/write their own mood session data
+      match /mood_sessions/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // Additional validation for write operations
+        allow create: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidMoodSessionData(request.resource.data);
+        
+        allow update: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidMoodSessionData(request.resource.data);
+      }
+    }
+    
+    // ==== HELPER FUNCTIONS ====
+    
+    // Validate biofeedback data structure
+    function isValidBiofeedbackData(data) {
+      return data.keys().hasAll(['userId', 'bpm', 'method', 'timestamp']) &&
+             data.userId is string &&
+             data.bpm is int &&
+             data.bpm >= 30 &&
+             data.bpm <= 220 &&
+             data.method in ['camera', 'smartwatch', 'manual'] &&
+             data.timestamp is timestamp;
+    }
+    
+    // Validate mood session data structure  
+    function isValidMoodSessionData(data) {
+      return data.keys().hasAll(['emotion', 'confidence', 'timestamp', 'sessionType']) &&
+             data.emotion is string &&
+             data.confidence is number &&
+             data.confidence >= 0 &&
+             data.confidence <= 1 &&
+             data.timestamp is timestamp &&
+             data.sessionType is string;
+    }
+    
+    // ==== FALLBACK DENY RULE ====
+    // Deny access to all other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

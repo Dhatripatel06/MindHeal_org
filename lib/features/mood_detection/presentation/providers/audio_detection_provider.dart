@@ -284,7 +284,7 @@ class AudioDetectionProvider extends ChangeNotifier {
 
     try {
       print('Playing recording: $_lastRecordedFilePath');
-      
+
       // Check if file exists before attempting to play
       final file = File(_lastRecordedFilePath!);
       if (!await file.exists()) {
@@ -292,36 +292,39 @@ class AudioDetectionProvider extends ChangeNotifier {
         if (_mounted) notifyListeners();
         return;
       }
-      
+
       // Stop any currently playing audio first
       await _audioPlayer.stop();
-      
+
       // Use DeviceFileSource for local files
       await _audioPlayer.play(DeviceFileSource(_lastRecordedFilePath!));
-      
+
       // Show success feedback
       _lastError = null;
       if (_mounted) notifyListeners();
     } catch (e) {
       print('Failed to play recording: $e');
-      
+
       // Try alternative approach with BytesSource if DeviceFileSource fails
       try {
         print('Trying alternative playback method...');
         final file = File(_lastRecordedFilePath!);
         final bytes = await file.readAsBytes();
         await _audioPlayer.play(BytesSource(bytes));
-        
+
         _lastError = null;
         if (_mounted) notifyListeners();
         print('Alternative playback method succeeded');
       } catch (alternativeError) {
         print('Alternative playback also failed: $alternativeError');
-        _lastError = 'Failed to play recording. File may be corrupted or in unsupported format.';
+        _lastError =
+            'Failed to play recording. File may be corrupted or in unsupported format.';
         if (_mounted) notifyListeners();
       }
     }
-  }  /// Get fresh advice from Gemini for the current emotion
+  }
+
+  /// Get fresh advice from Gemini for the current emotion
   Future<String> getFreshAdvice([String? customText]) async {
     if (_lastResult == null) {
       throw Exception('No emotion result available');

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../providers/biofeedback_provider.dart';
+import '../../../../core/services/firestore_service.dart';
+import '../../../../shared/models/heart_rate_measurement.dart';
 
 class CameraHeartRatePage extends StatefulWidget {
   const CameraHeartRatePage({super.key});
@@ -24,6 +27,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
   String _statusMessage = 'Place finger over camera and flash';
 
   // final SignalProcessingService _signalProcessor = SignalProcessingService(); // Unused for now
+  final FirestoreService _firestoreService = FirestoreService();
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -189,6 +193,9 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
     if (mounted) {
       final provider = Provider.of<BiofeedbackProvider>(context, listen: false);
       provider.updateHeartRate(_currentBPM);
+
+      // Save to Firestore
+      _saveHeartRateMeasurement();
     }
 
     // Show results
@@ -276,6 +283,60 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       return 'Your heart rate is within the normal range. Keep up the good work!';
     } else {
       return 'Your heart rate is elevated. Take some time to relax and breathe deeply.';
+    }
+  }
+
+  Future<void> _saveHeartRateMeasurement() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // User not authenticated - data still saved locally via provider
+        print('User not authenticated - skipping Firestore save');
+        return;
+      }
+
+      final measurement = HeartRateMeasurement(
+        userId: user.uid,
+        bpm: _currentBPM,
+        method: MeasurementMethod.camera,
+        timestamp: DateTime.now(),
+        confidenceScore: _confidence,
+        metadata: {
+          'sessionDuration': _progress,
+          'device': 'camera',
+        },
+      );
+
+      await _firestoreService.saveBiofeedback(measurement);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Heart rate saved: $_currentBPM BPM'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Firestore save failed: $e');
+      // Data is still saved locally via provider - app continues to work
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved locally. Cloud sync failed.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 

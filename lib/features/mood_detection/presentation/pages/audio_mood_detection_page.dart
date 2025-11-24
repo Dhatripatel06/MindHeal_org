@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/audio_detection_provider.dart';
 import '../widgets/waveform_visualizer.dart';
 import '../widgets/advice_dialog.dart';
+import '../../../../core/services/firestore_service.dart';
+import '../../data/models/audio_emotion_result.dart';
 
 class AudioMoodDetectionPage extends StatefulWidget {
   const AudioMoodDetectionPage({super.key});
@@ -18,6 +21,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void initState() {
@@ -670,24 +674,10 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // Actual save logic would go here
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '💾 Audio saved with ${result.emotion} emotion detected',
-                  ),
-                  backgroundColor: Colors.green,
-                  action: SnackBarAction(
-                    label: 'View',
-                    textColor: Colors.white,
-                    onPressed: () {
-                      // Navigate to saved recordings if implemented
-                    },
-                  ),
-                ),
-              );
+              // Save to Firestore
+              await _saveMoodSessionToFirestore(result);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal,
@@ -908,6 +898,80 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
         return '😐';
       default:
         return '😐';
+    }
+  }
+
+  Future<void> _saveMoodSessionToFirestore(result) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // User not authenticated - show message but continue
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved locally. Sign in to sync across devices.'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Create a proper AudioEmotionResult with transcription data
+      final provider =
+          Provider.of<AudioDetectionProvider>(context, listen: false);
+      final audioResult = AudioEmotionResult(
+        emotion: result.emotion,
+        confidence: result.confidence,
+        allEmotions: result.allEmotions,
+        timestamp: result.timestamp,
+        processingTimeMs: result.processingTimeMs,
+        transcribedText: provider.userSpeechForAdvice.isNotEmpty
+            ? provider.userSpeechForAdvice
+            : provider.liveTranscribedText.isNotEmpty
+                ? provider.liveTranscribedText
+                : 'No transcription available',
+        originalLanguage: provider.selectedLanguage,
+        audioFilePath: provider.audioFilePath,
+        error: result.error,
+      );
+
+      await _firestoreService.saveMoodSession(audioResult, type: 'audio');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Audio analysis saved: ${result.emotion}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'View History',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.pushNamed(context, '/history');
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Firestore save failed: $e');
+      // Data handling continues locally
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved locally. Cloud sync failed: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 }

@@ -4,9 +4,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/models/emotion_result.dart';
 import '../../onnx_emotion_detection/data/services/onnx_emotion_service.dart';
 import '../../../../core/services/gemini_adviser_service.dart';
+import '../../../../core/services/firestore_service.dart';
 import '../widgets/advice_dialog.dart';
 
 class ImageMoodDetectionPage extends StatefulWidget {
@@ -20,6 +22,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
     with TickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   final OnnxEmotionService _emotionService = OnnxEmotionService.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   late FaceDetector _faceDetector;
   late AnimationController _animationController;
   late AnimationController _fabAnimationController;
@@ -897,20 +900,61 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
     _animationController.reset();
   }
 
-  void _saveResult(EmotionResult result) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text('${result.emotion} result saved successfully!'),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _saveResult(EmotionResult result) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // User not authenticated - show message but continue
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved locally. Sign in to sync across devices.'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Save to Firestore with 'image' type
+      await _firestoreService.saveMoodSession(result, type: 'image');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('${result.emotion} result saved successfully!'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Failed to save result: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _getAdvice(EmotionResult result) {
