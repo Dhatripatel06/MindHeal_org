@@ -55,13 +55,19 @@ void main() async {
 
 Future<void> _initializeBackgroundServices() async {
   print("⏳ Initializing AI Models in Background...");
-  
+
   // Initialize independently so one failure doesn't stop the other
   OnnxEmotionService.instance.initialize().then((_) {
     print("✅ OnnxEmotionService Ready");
-  }).catchError((e) => print("❌ Onnx Init Error: $e"));
+  }).catchError((e) {
+    print("❌ Onnx Init Error: $e");
+    return null;
+  });
 
   Wav2Vec2EmotionService.instance.initialize().then((_) {
     print("✅ Wav2Vec2EmotionService Ready");
-  }).catchError((e) => print("❌ Wav2Vec2 Init Error: $e"));
+  }).catchError((e) {
+    print("❌ Wav2Vec2 Init Error: $e");
+    return null;
+  });
 }

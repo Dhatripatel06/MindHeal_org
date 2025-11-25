@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/gemini_adviser_service.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../../../../shared/models/heart_rate_measurement.dart';
+import '../../../../shared/models/chat_session.dart';
 import '../../../mood_detection/data/models/emotion_result.dart';
 
 class ChatPage extends StatefulWidget {
@@ -20,24 +22,151 @@ class _ChatPageState extends State<ChatPage> {
 
   bool _isLoading = false;
 
+  // Chat session management
+  String _currentChatId = '';
+  List<ChatSession> _chatSessions = [];
+
+  // Language selection
+  String _selectedLanguage = 'English';
+
   final List<ChatMessage> _messages = [
     ChatMessage(
       text:
-          "Hello! I'm MindHeal Assistant, your AI wellness assistant. I have access to your mood and heart rate history to provide personalized guidance. How are you feeling today?",
+          "Hello! I'm your Best friend 🌙, your AI wellness assistant. I have access to your mood and heart rate history to provide personalized guidance. How are you feeling today? 💝",
       isUser: false,
       timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
     ),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadChatHistoryFromFirestore();
+    _createNewSession();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MindHeal Assistant'),
+        title: const Text('BFF 💙'),
         actions: [
           IconButton(
-            onPressed: () {},
+            icon: const Icon(Icons.add_comment),
+            onPressed: _startNewChat,
+            tooltip: 'New Chat',
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _showChatHistory,
+            tooltip: 'Chat History',
+          ),
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
+            tooltip: 'More Options',
+            onSelected: (String language) {
+              setState(() {
+                _selectedLanguage = language;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Language changed to $_selectedLanguage 🌍'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'English',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.language,
+                      color: _selectedLanguage == 'English'
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'English',
+                      style: TextStyle(
+                        fontWeight: _selectedLanguage == 'English'
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: _selectedLanguage == 'English'
+                            ? Theme.of(context).primaryColor
+                            : null,
+                      ),
+                    ),
+                    if (_selectedLanguage == 'English') ...[
+                      const Spacer(),
+                      Icon(Icons.check,
+                          color: Theme.of(context).primaryColor, size: 16),
+                    ],
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'Hindi',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.language,
+                      color: _selectedLanguage == 'Hindi'
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'हिंदी (Hindi)',
+                      style: TextStyle(
+                        fontWeight: _selectedLanguage == 'Hindi'
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: _selectedLanguage == 'Hindi'
+                            ? Theme.of(context).primaryColor
+                            : null,
+                      ),
+                    ),
+                    if (_selectedLanguage == 'Hindi') ...[
+                      const Spacer(),
+                      Icon(Icons.check,
+                          color: Theme.of(context).primaryColor, size: 16),
+                    ],
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'Gujarati',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.language,
+                      color: _selectedLanguage == 'Gujarati'
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ગુજરાતી (Gujarati)',
+                      style: TextStyle(
+                        fontWeight: _selectedLanguage == 'Gujarati'
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: _selectedLanguage == 'Gujarati'
+                            ? Theme.of(context).primaryColor
+                            : null,
+                      ),
+                    ),
+                    if (_selectedLanguage == 'Gujarati') ...[
+                      const Spacer(),
+                      Icon(Icons.check,
+                          color: Theme.of(context).primaryColor, size: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -168,6 +297,8 @@ class _ChatPageState extends State<ChatPage> {
                 message.text,
                 style: TextStyle(
                   color: message.isUser ? Colors.white : Colors.black87,
+                  fontSize: 16, // Increased font size for better readability
+                  height: 1.4, // Better line spacing
                 ),
               ),
             ),
@@ -291,22 +422,44 @@ class _ChatPageState extends State<ChatPage> {
       _isLoading = true;
     });
 
+    // Save user message to Firestore
+    await _saveMessageToFirestore(userMessage);
+
     final userInput = _messageController.text.trim();
     _messageController.clear();
 
     try {
+      print('📱 User sent: "$userInput"');
+
+      // Check if service is configured
+      if (!_geminiService.isConfigured) {
+        print(
+            '❌ Gemini service not configured! API key: ${_geminiService.apiKeyPreview}');
+      } else {
+        print(
+            '✅ Gemini service configured. API key: ${_geminiService.apiKeyPreview}');
+      }
+
       // Get user's wellness history
+      print('📊 Fetching user wellness history...');
       final moodHistory = await _getMoodHistory();
       final bpmHistory = await _getBpmHistory();
+      print(
+          '📊 Mood history: ${moodHistory.length} entries, BPM history: ${bpmHistory.length} entries');
 
       // Create comprehensive prompt for Gemini
       final prompt = _buildCounselorPrompt(userInput, moodHistory, bpmHistory);
+      print('📝 Generated wellness context (${prompt.length} chars)');
 
       // Get response from Gemini
+      print('🤖 Calling Gemini API...');
       final response = await _geminiService.getChatResponse(
         userMessage: userInput,
         wellnessContext: prompt,
+        language: _selectedLanguage,
       );
+      print(
+          '✅ Gemini response received (${response.length} chars): ${response.substring(0, response.length > 100 ? 100 : response.length)}...');
 
       final aiMessage = ChatMessage(
         text: response,
@@ -318,7 +471,12 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(aiMessage);
         _isLoading = false;
       });
+
+      // Save AI response to Firestore
+      await _saveMessageToFirestore(aiMessage);
     } catch (e) {
+      print('❌ Error in _sendMessage: $e');
+
       // Fallback response if Gemini fails
       final aiMessage = ChatMessage(
         text:
@@ -331,6 +489,9 @@ class _ChatPageState extends State<ChatPage> {
         _messages.add(aiMessage);
         _isLoading = false;
       });
+
+      // Save fallback message to Firestore
+      await _saveMessageToFirestore(aiMessage);
     }
 
     _scrollToBottom();
@@ -431,6 +592,425 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  // New chat functionality methods
+  Future<void> _startNewChat() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // If user is not logged in, just clear the local messages
+      String welcomeMessage = _getWelcomeMessage();
+      setState(() {
+        _messages.clear();
+        _messages.add(ChatMessage(
+          text: welcomeMessage,
+          isUser: false,
+          timestamp: DateTime.now(),
+        ));
+      });
+      _scrollToBottom();
+    } else {
+      // Create a new session in Firestore for logged-in users
+      await _createNewSession();
+    }
+
+    // Show snackbar to confirm new chat started
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_getNewChatMessage()),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _getWelcomeMessage() {
+    switch (_selectedLanguage) {
+      case 'Hindi':
+        return "नमस्ते! 🌙 मैं Luna हूं, आपकी देखभाल करने वाली दोस्त और wellness साथी। आज आप कैसा महसूस कर रहे हैं? 💝";
+      case 'Gujarati':
+        return "નમસ્તે! 🌙 હું Luna છું, તમારી કેરિંગ મિત્ર અને wellness સાથી. આજે તમે કેવું લાગે છે? 💝";
+      default:
+        return "Hi there! 🌙 I'm Luna, your caring friend and wellness companion. How are you feeling today? 💝";
+    }
+  }
+
+  String _getNewChatMessage() {
+    switch (_selectedLanguage) {
+      case 'Hindi':
+        return "नई चैट शुरू! 🌟";
+      case 'Gujarati':
+        return "નવી ચેટ શરૂ! 🌟";
+      default:
+        return "New chat started! 🌟";
+    }
+  }
+
+  // Firestore chat persistence methods
+  Future<void> _loadChatHistoryFromFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('User not logged in, skipping chat history load');
+      return;
+    }
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .orderBy('lastUpdated', descending: true)
+          .get();
+
+      setState(() {
+        _chatSessions = querySnapshot.docs
+            .map((doc) => ChatSession.fromJson({...doc.data(), 'id': doc.id}))
+            .toList();
+      });
+    } catch (e) {
+      print('Error loading chat history: $e');
+    }
+  }
+
+  Future<void> _createNewSession() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('User not logged in, cannot create Firestore session');
+      return;
+    }
+
+    final sessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    final welcomeMessage = _getWelcomeMessage();
+
+    final newSession = ChatSession(
+      id: sessionId,
+      title: 'Chat ${DateTime.now().day}/${DateTime.now().month}',
+      lastUpdated: DateTime.now(),
+      messageCount: 1, // Welcome message
+    );
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(sessionId)
+          .set(newSession.toJson());
+
+      // Save welcome message
+      final welcomeChatMessage = ChatMessage(
+        text: welcomeMessage,
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+
+      await _saveMessageToFirestore(welcomeChatMessage);
+
+      setState(() {
+        _currentChatId = sessionId;
+        _chatSessions.insert(0, newSession);
+        _messages.clear();
+        _messages.add(welcomeChatMessage);
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      print('Error creating new session: $e');
+      // Fallback to local-only session
+      final welcomeChatMessage = ChatMessage(
+        text: welcomeMessage,
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+
+      setState(() {
+        _currentChatId = '';
+        _messages.clear();
+        _messages.add(welcomeChatMessage);
+      });
+
+      _scrollToBottom();
+
+      // Show user that chat history won't be saved
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Chat history unavailable - messages won\'t be saved'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveMessageToFirestore(ChatMessage message) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _currentChatId.isEmpty) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(_currentChatId)
+          .collection('messages')
+          .add({
+        'text': message.text,
+        'isUser': message.isUser,
+        'timestamp': message.timestamp.toIso8601String(),
+      });
+
+      // Update session message count and last updated
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(_currentChatId)
+          .update({
+        'messageCount': FieldValue.increment(1),
+        'lastUpdated': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      print('Error saving message: $e');
+      // Silently fail for now - message is already in local UI
+    }
+  }
+
+  Future<void> _loadChatSession(String sessionId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final messagesSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(sessionId)
+          .collection('messages')
+          .orderBy('timestamp')
+          .get();
+
+      final messages = messagesSnapshot.docs.map((doc) {
+        final data = doc.data();
+        return ChatMessage(
+          text: data['text'],
+          isUser: data['isUser'],
+          timestamp: DateTime.parse(data['timestamp']),
+        );
+      }).toList();
+
+      setState(() {
+        _currentChatId = sessionId;
+        _messages.clear();
+        _messages.addAll(messages);
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      print('Error loading chat session: $e');
+    }
+  }
+
+  String _formatChatDate(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      // Today
+      return 'Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      // Yesterday
+      return 'Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays < 7) {
+      // This week
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return '${weekdays[dateTime.weekday - 1]} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else {
+      // More than a week
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+  }
+
+  void _showChatHistory() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // Show message that user needs to be logged in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to access chat history'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Check if we have any chat sessions loaded
+    if (_chatSessions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No chat history available - start a conversation!'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.8,
+        minChildSize: 0.3,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Chat History',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: _chatSessions.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No Chat History Yet',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Start your first conversation with BFF! 💙',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _startNewChat();
+                              },
+                              icon: const Icon(Icons.add_comment),
+                              label: const Text('Start New Chat'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _chatSessions.length,
+                        itemBuilder: (context, index) {
+                          final session = _chatSessions[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).primaryColor,
+                                child: Text(
+                                  '${session.lastUpdated.day}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                session.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${session.messageCount} messages',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                  Text(
+                                    _formatChatDate(session.lastUpdated),
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Colors.grey[400],
+                              ),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _loadChatSession(session.id);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -449,4 +1029,20 @@ class ChatMessage {
     required this.isUser,
     required this.timestamp,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'isUser': isUser,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      text: json['text'],
+      isUser: json['isUser'],
+      timestamp: DateTime.parse(json['timestamp']),
+    );
+  }
 }

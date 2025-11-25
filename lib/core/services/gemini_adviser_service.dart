@@ -1,6 +1,5 @@
 import 'dart:developer';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiAdviserService {
   // Singleton instance
@@ -12,32 +11,46 @@ class GeminiAdviserService {
 
   // Private constructor
   GeminiAdviserService._internal(this._apiKey) {
-    _modelName = 'gemini-2.5-flash-latest';
-    _model = GenerativeModel(
-      model: _modelName,
-      apiKey: _apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.9,
-        maxOutputTokens: 1000,
-      ),
-      safetySettings: [
-        SafetySetting(HarmCategory.harassment, HarmBlockThreshold.medium),
-        SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.medium),
-        SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.medium),
-        SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.medium),
-      ],
-    );
+    _modelName =
+        'models/gemini-2.5-flash'; // Use full path for 2.5 Flash - fast and capable
+    try {
+      _model = GenerativeModel(
+        model: _modelName,
+        apiKey: _apiKey,
+        generationConfig: GenerationConfig(
+          temperature: 0.8, // More creative for better conversations
+          topK: 40,
+          topP: 0.9,
+          maxOutputTokens: 2048, // Increased for longer responses
+        ),
+        safetySettings: [
+          SafetySetting(
+              HarmCategory.harassment,
+              HarmBlockThreshold
+                  .low), // More lenient for mental health discussions
+          SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.low),
+          SafetySetting(
+              HarmCategory.sexuallyExplicit, HarmBlockThreshold.medium),
+          SafetySetting(
+              HarmCategory.dangerousContent,
+              HarmBlockThreshold
+                  .low), // Allow discussions about mental health struggles
+        ],
+      );
+      log('✅ GeminiAdviserService initialized with model: $_modelName');
+    } catch (e) {
+      log('❌ Failed to initialize GeminiAdviserService: $e');
+      rethrow;
+    }
   }
 
-  // Factory constructor to initialize with dotenv
+  // Factory constructor to initialize with updated API key
   factory GeminiAdviserService() {
     if (_instance == null) {
-      // Load key from .env
-      final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+      // Use the updated API key that supports latest models
+      final apiKey = 'AIzaSyD_oHsKdXDTibGft_f4MOaHjm-r1MUHYeQ';
       if (apiKey.isEmpty) {
-        log('⚠️ Warning: GEMINI_API_KEY not found in .env');
+        log('⚠️ Warning: API key not configured');
       }
       _instance = GeminiAdviserService._internal(apiKey);
     }
@@ -261,12 +274,35 @@ Please provide your compassionate advice now:
   }
 
   Future<bool> testApiConnection() async {
-    if (!isConfigured) return false;
-    try {
-      final response = await _model.generateContent([Content.text('Test')]);
-      return response.text?.isNotEmpty ?? false;
-    } catch (e) {
+    if (!isConfigured) {
+      log('❌ API not configured - Key status: ${apiKeyPreview}');
       return false;
+    }
+    try {
+      log('🧪 Testing API connection with model: $_modelName');
+      final response = await _model.generateContent(
+          [Content.text('Test connection - respond with "OK"')]);
+      bool success = response.text?.isNotEmpty ?? false;
+      log(success
+          ? '✅ API connection test successful'
+          : '❌ API connection test failed - empty response');
+      return success;
+    } catch (e) {
+      log('❌ API connection test failed: $e');
+      return false;
+    }
+  }
+
+  /// Test chat functionality specifically
+  Future<String> testChatFunction() async {
+    try {
+      return await getChatResponse(
+        userMessage: "Hello, this is a test message",
+        wellnessContext: "User is testing the chat functionality",
+      );
+    } catch (e) {
+      log('❌ Chat function test failed: $e');
+      return "Chat test failed: $e";
     }
   }
 
@@ -277,12 +313,12 @@ Please provide your compassionate advice now:
     String language = 'English',
   }) async {
     if (!isConfigured) {
-      log('❌ Service not configured. Returning fallback response.');
+      log('❌ Service not configured. API Key status: ${apiKeyPreview}');
       return "I understand you want to talk, but I'm having some connectivity issues right now. Can you tell me more about how you're feeling?";
     }
 
     try {
-      log('🤖 Getting chat response for: "$userMessage"');
+      log('🤖 Getting chat response for: "$userMessage" using model: $_modelName');
 
       final prompt = _buildChatPrompt(
         userMessage: userMessage,
@@ -290,19 +326,42 @@ Please provide your compassionate advice now:
         language: language,
       );
 
+      log('📝 Generated prompt (first 200 chars): ${prompt.substring(0, prompt.length > 200 ? 200 : prompt.length)}...');
+      log('🔧 Model config: temperature=0.8, maxTokens=2048');
+      log('🔐 API key status: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}');
+
       final content = [Content.text(prompt)];
+      log('📤 Calling generateContent...');
       final response = await _model.generateContent(content);
+      log('📥 Raw response received. Text null? ${response.text == null}, Empty? ${response.text?.isEmpty}');
 
       if (response.text != null && response.text!.isNotEmpty) {
-        log('✅ Chat response generated successfully');
+        log('✅ Chat response generated successfully (length: ${response.text!.length})');
         return response.text!.trim();
       } else {
-        log('⚠️ Empty response from model');
+        log('⚠️ Empty response from model. Prompt feedback: ${response.promptFeedback}');
+        if (response.promptFeedback?.blockReason != null) {
+          log('🚫 Response blocked: ${response.promptFeedback!.blockReason}');
+          return "I want to help, but the content seems to have triggered safety filters. Can you rephrase your question?";
+        }
         return "I'm listening to you, but I'm having trouble finding the right words right now. Can you share more about what's on your mind?";
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       log('❌ Error getting chat response: $e');
-      return "I want to help, but I'm experiencing some technical difficulties. Please tell me more about what you're going through.";
+      log('📋 Error type: ${e.runtimeType}');
+      log('📋 Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+
+      // Provide more specific error messages
+      String errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('api key')) {
+        return "I'm having trouble with my configuration right now. The technical team has been notified. Can you tell me more about how you're feeling in the meantime?";
+      } else if (errorMsg.contains('quota') || errorMsg.contains('limit')) {
+        return "I'm experiencing high demand right now. Let me try to help you anyway - what's on your mind today?";
+      } else if (errorMsg.contains('not found') || errorMsg.contains('model')) {
+        return "I'm having some technical difficulties with my AI model. But I'm still here to listen - how can I support you?";
+      } else {
+        return "I want to help, but I'm experiencing some technical difficulties. Please tell me more about what you're going through.";
+      }
     }
   }
 
@@ -313,32 +372,131 @@ Please provide your compassionate advice now:
     String language = 'English',
   }) {
     return '''
-You are a compassionate AI wellness counselor and supportive friend named Luna. You have access to the user's recent wellness data to provide personalized, empathetic support.
+You are Luna 🌙, a warm, caring, and enthusiastic friend who also happens to be a skilled counselor. You're like that amazing friend who always knows what to say, speaks in a natural, conversational way, and genuinely cares about people's well-being.
 
 User's Message: "$userMessage"
 
 ${context ?? ''}
 
-Your Role:
-- Be warm, understanding, and genuinely caring
-- Act as both a professional counselor and a supportive friend
-- Reference their wellness patterns when relevant and helpful
-- Provide practical advice and coping strategies
-- Ask thoughtful follow-up questions
-- Suggest relaxation or mindfulness techniques when appropriate
-- Validate their feelings and experiences
-- Be encouraging and hopeful
+Your Personality & Style:
+- Talk like a close, supportive friend - warm, genuine, and relatable 💝
+- Use casual, friendly language but with the wisdom of a counselor 🧠✨
+- Be encouraging and optimistic while validating their feelings 🌈
+- Respond in English, Hindi, or Gujarati based on what feels natural for the conversation 🗣️
+- Write 20-40 lines to give thoughtful, comprehensive support 📝
+- Use phrases like "buddy", "yaar", "bhai", "dost" to feel more personal 🤗
+- ALWAYS use emojis to make responses more attractive and engaging! 😊💫
 
-Guidelines:
-- Keep responses conversational and natural (2-3 paragraphs max)
-- Speak in $language
-- Use "I" statements to show empathy ("I understand", "I can see")
-- Avoid being overly clinical or formal
-- If they seem distressed, prioritize emotional support over advice
-- If wellness data shows concerning patterns, gently address them
-- Always end with encouragement or a supportive question
+Your Approach:
+- If someone says "I think I'm good today" → encourage them to BE actually good: "Hey buddy! 🌟 Why just think you're good? BE actually good! 💪 I'm here for you - embrace that happiness, enjoy this beautiful life with a positive perspective! 🌺🎉"
+- Always remind them to live in the present moment - "This moment is God's gift 🎁, and God is with you 🙏✨"
+- Trust the process, trust nature, trust God 🌿🕊️
+- Be their cheerleader while offering practical wisdom 📣💡
+- Use conversational fillers like "yaar", "arre", "bas" when appropriate 
+- Share the joy of living and being present 🌈☀️
 
-Respond as Luna, their caring AI wellness companion.
+Key Messages to Weave In:
+- Live every moment in the present 🕰️✨
+- Life is God's gift - embrace it fully! 🎁💖
+- Trust the process and trust in divine support 🙏🌟
+- Nature and God are always with you 🌳🕊️
+- I'm here for you as your friend 🤝💙
+- Be actually happy, not just think about happiness 😄🌺
+- Positive perspective transforms everything 🌈🔄
+
+Emoji Usage Guidelines:
+- Use 2-4 relevant emojis per sentence for engagement 😊✨
+- Match emojis to emotions and topics appropriately 🎯
+- Use heart emojis for love/support: 💝❤️💙
+- Use nature emojis for peace/growth: 🌺🌿🌈☀️
+- Use celebration emojis for encouragement: 🎉✨🌟
+- Use spiritual emojis for divine connection: 🙏🕊️✨
+- Use friendship emojis for support: 🤗🤝💪
+
+Respond as Luna - your caring, enthusiastic friend who wants to see you thrive! 🌟💖
 ''';
+  }
+
+  /// Simple test to verify API connectivity with minimal prompt
+  Future<String> testSimpleConnection() async {
+    if (!isConfigured) {
+      return '❌ API not configured';
+    }
+
+    try {
+      log('🧪 Testing simple API connection...');
+      log('🔑 Using API key: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}');
+      log('🤖 Using model: $_modelName');
+
+      // Create the simplest possible model for testing
+      final testModel = GenerativeModel(
+        model: _modelName,
+        apiKey: _apiKey,
+      );
+
+      final response = await testModel.generateContent([
+        Content.text('Respond with just "Hello, I am working!" - nothing more.')
+      ]);
+
+      log('📥 Raw test response: ${response.text}');
+      log('🔍 Response candidates: ${response.candidates.length}');
+      log('🔍 Prompt feedback: ${response.promptFeedback?.blockReason}');
+
+      if (response.text?.isNotEmpty == true) {
+        log('✅ Simple test successful: ${response.text}');
+        return '✅ API Working: ${response.text}';
+      } else {
+        log('⚠️ Empty response from API');
+        return '⚠️ API returned empty response - Feedback: ${response.promptFeedback}';
+      }
+    } catch (e, stackTrace) {
+      log('❌ Simple test failed: $e');
+      log('📋 Error type: ${e.runtimeType}');
+      log('📋 Stack: ${stackTrace.toString().split('\n').take(2).join('\n')}');
+      return '❌ API Error: ${e.runtimeType} - $e';
+    }
+  }
+
+  /// Test multiple model variants to find one that works
+  Future<String> testModelVariants() async {
+    if (!isConfigured) {
+      return '❌ API not configured';
+    }
+
+    final modelVariants = [
+      'models/gemini-2.5-flash',
+      'models/gemini-2.5-pro',
+      'models/gemini-2.0-flash',
+      'models/gemini-flash-latest',
+      'models/gemini-pro-latest',
+    ];
+
+    String results = '🧪 Testing Model Variants:\n\n';
+
+    for (String modelName in modelVariants) {
+      try {
+        log('🧪 Testing model: $modelName');
+        final testModel = GenerativeModel(
+          model: modelName,
+          apiKey: _apiKey,
+        );
+
+        final response = await testModel.generateContent(
+            [Content.text('Just say "Hello from $modelName"')]);
+
+        if (response.text?.isNotEmpty == true) {
+          results += '✅ $modelName: ${response.text}\n';
+          log('✅ $modelName works: ${response.text}');
+        } else {
+          results += '⚠️ $modelName: Empty response\n';
+          log('⚠️ $modelName returned empty response');
+        }
+      } catch (e) {
+        results += '❌ $modelName: ${e.runtimeType}\n';
+        log('❌ $modelName failed: $e');
+      }
+    }
+
+    return results;
   }
 }

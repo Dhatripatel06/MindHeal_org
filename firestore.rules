@@ -37,6 +37,31 @@ service cloud.firestore {
           && request.auth.uid == userId
           && isValidMoodSessionData(request.resource.data);
       }
+      
+      // ==== CHAT SESSIONS SUBCOLLECTION ====
+      // Allow users to read/write their own chat sessions
+      match /chat_sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // Additional validation for write operations
+        allow create: if request.auth != null 
+          && request.auth.uid == userId
+          && isValidChatSessionData(request.resource.data);
+        
+        allow update: if request.auth != null 
+          && request.auth.uid == userId;
+        
+        // ==== CHAT MESSAGES SUBCOLLECTION ====
+        // Allow users to read/write messages within their chat sessions
+        match /messages/{messageId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+          
+          // Additional validation for write operations
+          allow create: if request.auth != null 
+            && request.auth.uid == userId
+            && isValidChatMessageData(request.resource.data);
+        }
+      }
     }
     
     // ==== HELPER FUNCTIONS ====
@@ -61,6 +86,24 @@ service cloud.firestore {
              data.confidence <= 1 &&
              data.timestamp is timestamp &&
              data.sessionType is string;
+    }
+    
+    // Validate chat session data structure
+    function isValidChatSessionData(data) {
+      return data.keys().hasAll(['id', 'title', 'lastUpdated', 'messageCount']) &&
+             data.id is string &&
+             data.title is string &&
+             data.lastUpdated is string &&
+             data.messageCount is int &&
+             data.messageCount >= 0;
+    }
+    
+    // Validate chat message data structure
+    function isValidChatMessageData(data) {
+      return data.keys().hasAll(['text', 'isUser', 'timestamp']) &&
+             data.text is string &&
+             data.isUser is bool &&
+             data.timestamp is string;
     }
     
     // ==== FALLBACK DENY RULE ====
