@@ -17,7 +17,6 @@ import '../features/mood_detection/presentation/pages/mood_selection_page.dart';
 import '../features/mood_detection/presentation/providers/mood_detection_provider.dart';
 import '../features/mood_detection/presentation/providers/image_detection_provider.dart';
 import '../features/mood_detection/presentation/providers/audio_detection_provider.dart';
-import '../features/mood_detection/presentation/providers/combined_detection_provider.dart';
 import 'route_guard.dart';
 
 // Services
@@ -41,7 +40,6 @@ import '../features/audio_healing/presentation/pages/audio_healing_page.dart';
 import '../features/history/presentation/pages/history_page.dart';
 import '../features/biofeedback/presentation/providers/biofeedback_provider.dart';
 import '../features/biofeedback/presentation/providers/camera_heart_rate_provider.dart';
-import '../core/services/gemini_adviser_service.dart';
 
 // Theme
 import 'theme.dart';
@@ -86,12 +84,6 @@ class MentalWellnessApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MoodDetectionProvider()),
         ChangeNotifierProvider(create: (_) => ImageDetectionProvider()),
         ChangeNotifierProvider(create: (_) => AudioDetectionProvider()),
-        ChangeNotifierProvider(
-            create: (_) => CombinedDetectionProvider(
-                  imageProvider: Provider.of<ImageDetectionProvider>(context),
-                  audioProvider: Provider.of<AudioDetectionProvider>(context),
-                  geminiService: GeminiAdviserService(),
-                )),
 
         // Biofeedback providers
         ChangeNotifierProvider(create: (_) => BiofeedbackProvider()),

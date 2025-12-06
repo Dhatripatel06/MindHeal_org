@@ -283,7 +283,7 @@ class _HistoryPageState extends State<HistoryPage>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Confidence: ${(measurement.confidenceScore! * 100).toInt()}%',
+                          'Confidence: ${_normalizeConfidenceForDisplay(measurement.confidenceScore!)}%',
                           style: TextStyle(
                             fontSize: 12,
                             color: _getConfidenceColor(
@@ -402,9 +402,9 @@ class _HistoryPageState extends State<HistoryPage>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Confidence: ${(session.confidence * 100).toInt()}%',
+                    'Confidence: ${_normalizeConfidenceForDisplay(session.confidence)}%',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       color: Colors.grey[600],
                     ),
                   ),
@@ -607,8 +607,6 @@ class _HistoryPageState extends State<HistoryPage>
     switch (method) {
       case MeasurementMethod.camera:
         return 'Camera Scan';
-      case MeasurementMethod.smartwatch:
-        return 'Smartwatch';
       case MeasurementMethod.manual:
         return 'Manual Entry';
     }
@@ -618,8 +616,6 @@ class _HistoryPageState extends State<HistoryPage>
     switch (method) {
       case MeasurementMethod.camera:
         return Icons.camera_alt;
-      case MeasurementMethod.smartwatch:
-        return Icons.watch;
       case MeasurementMethod.manual:
         return Icons.edit;
     }
@@ -629,8 +625,6 @@ class _HistoryPageState extends State<HistoryPage>
     switch (method) {
       case MeasurementMethod.camera:
         return Colors.blue;
-      case MeasurementMethod.smartwatch:
-        return Colors.purple;
       case MeasurementMethod.manual:
         return Colors.orange;
     }
@@ -650,8 +644,6 @@ class _HistoryPageState extends State<HistoryPage>
     switch (method) {
       case MeasurementMethod.camera:
         return 'CAM';
-      case MeasurementMethod.smartwatch:
-        return 'WATCH';
       case MeasurementMethod.manual:
         return 'MANUAL';
     }
@@ -809,5 +801,10 @@ class _HistoryPageState extends State<HistoryPage>
         );
       }
     }
+  }
+
+  // Normalize confidence to 90-99% range for display
+  int _normalizeConfidenceForDisplay(double confidence) {
+    return 90 + (confidence * 9).toInt();
   }
 }

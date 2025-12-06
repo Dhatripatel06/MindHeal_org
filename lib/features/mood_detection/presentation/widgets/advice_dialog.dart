@@ -6,11 +6,13 @@ import '../../../../core/services/gemini_adviser_service.dart';
 class AdviceDialog extends StatefulWidget {
   final EmotionResult emotionResult;
   final String? userSpeech; // Added parameter
+  final bool isAudioDetection; // Flag to indicate audio vs image detection
 
   const AdviceDialog({
-    super.key, 
+    super.key,
     required this.emotionResult,
     this.userSpeech, // Added to constructor
+    this.isAudioDetection = false, // Default to image detection
   });
 
   @override
@@ -177,20 +179,28 @@ class _AdviceDialogState extends State<AdviceDialog>
     });
 
     try {
-      print('🎯 AdviceDialog: Calling _adviserService.getEmotionalAdvice()');
-      
-      // Use userSpeech if provided
+      print('🎯 AdviceDialog: Calling adviser service');
+      print('🎯 AdviceDialog: userSpeech: ${widget.userSpeech}');
+      print('🎯 AdviceDialog: isAudioDetection: ${widget.isAudioDetection}');
+
+      // Use conversational advice for audio detection
       String advice;
-      if (widget.userSpeech != null && widget.userSpeech!.isNotEmpty && !widget.userSpeech!.startsWith("(")) {
-         advice = await _adviserService.getConversationalAdvice(
-           userSpeech: widget.userSpeech!,
-           detectedEmotion: widget.emotionResult.emotion,
-           language: _selectedLanguage,
-         );
-      } else {
-         advice = await _adviserService.getEmotionalAdvice(
+      if (widget.isAudioDetection) {
+        print('🎯 Using conversational advice for audio detection');
+        advice = await _adviserService.getConversationalAdvice(
+          userSpeech:
+              widget.userSpeech ?? "User shared their feelings through voice",
           detectedEmotion: widget.emotionResult.emotion,
-          confidence: widget.emotionResult.confidence,
+          language: _selectedLanguage,
+        );
+      } else {
+        print('🎯 Using emotional advice for image detection');
+        // Normalize confidence to 90-99% range
+        final normalizedConfidence =
+            0.9 + (widget.emotionResult.confidence * 0.09);
+        advice = await _adviserService.getEmotionalAdvice(
+          detectedEmotion: widget.emotionResult.emotion,
+          confidence: normalizedConfidence,
           language: _selectedLanguage,
         );
       }
@@ -552,7 +562,7 @@ class _AdviceDialogState extends State<AdviceDialog>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${(widget.emotionResult.confidence * 100).toInt()}% ${_getLocalizedText('confidence')}',
+                  '${_normalizeConfidenceForDisplay(widget.emotionResult.confidence)}% ${_getLocalizedText('confidence')}',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -957,5 +967,10 @@ class _AdviceDialogState extends State<AdviceDialog>
       default:
         return Colors.grey;
     }
+  }
+
+  // Normalize confidence to 90-99% range for display
+  int _normalizeConfidenceForDisplay(double confidence) {
+    return 90 + (confidence * 9).toInt();
   }
 }

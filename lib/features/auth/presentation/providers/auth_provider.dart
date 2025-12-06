@@ -24,11 +24,11 @@ class AuthProvider extends ChangeNotifier {
     required SignInWithGoogle signInWithGoogle,
     required SignInAnonymously signInAnonymously,
     required SignOut signOut,
-  })  : _authRepository = authRepository,
-        _signInWithEmail = signInWithEmail,
-        _signInWithGoogle = signInWithGoogle,
-        _signInAnonymously = signInAnonymously,
-        _signOut = signOut {
+  }) : _authRepository = authRepository,
+       _signInWithEmail = signInWithEmail,
+       _signInWithGoogle = signInWithGoogle,
+       _signInAnonymously = signInAnonymously,
+       _signOut = signOut {
     _initialize();
   }
 
@@ -49,22 +49,26 @@ class AuthProvider extends ChangeNotifier {
     _authStateSubscription = _authRepository.authStateChanges.listen(
       (user) async {
         if (user == null) {
-          _updateState(_state.copyWith(
-            status: AuthStatus.unauthenticated,
-            user: null,
-            userData: null,
-            isAnonymous: false,
-            clearError: true,
-          ));
+          _updateState(
+            _state.copyWith(
+              status: AuthStatus.unauthenticated,
+              user: null,
+              userData: null,
+              isAnonymous: false,
+              clearError: true,
+            ),
+          );
         } else {
           await _loadUserData(user);
         }
       },
       onError: (error) {
-        _updateState(_state.copyWith(
-          status: AuthStatus.error,
-          errorMessage: error.toString(),
-        ));
+        _updateState(
+          _state.copyWith(
+            status: AuthStatus.error,
+            errorMessage: error.toString(),
+          ),
+        );
       },
     );
   }
@@ -86,20 +90,24 @@ class AuthProvider extends ChangeNotifier {
         status = AuthStatus.authenticated;
       }
 
-      _updateState(_state.copyWith(
-        status: status,
-        user: user,
-        userData: userData,
-        isAnonymous: isAnonymous,
-        clearError: true,
-      ));
+      _updateState(
+        _state.copyWith(
+          status: status,
+          user: user,
+          userData: userData,
+          isAnonymous: isAnonymous,
+          clearError: true,
+        ),
+      );
     } catch (e) {
-      _updateState(_state.copyWith(
-        status: AuthStatus.authenticated,
-        user: user,
-        isAnonymous: _authRepository.isAnonymous,
-        errorMessage: 'Failed to load user data: ${e.toString()}',
-      ));
+      _updateState(
+        _state.copyWith(
+          status: AuthStatus.authenticated,
+          user: user,
+          isAnonymous: _authRepository.isAnonymous,
+          errorMessage: 'Failed to load user data: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -110,19 +118,17 @@ class AuthProvider extends ChangeNotifier {
       final user = await _signInWithEmail(email, password);
 
       if (user == null) {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          errorMessage: 'Sign in failed',
-        ));
+        _updateState(
+          _state.copyWith(isLoading: false, errorMessage: 'Sign in failed'),
+        );
         return;
       }
 
       _updateState(_state.copyWith(isLoading: false));
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -135,28 +141,34 @@ class AuthProvider extends ChangeNotifier {
       _updateState(_state.copyWith(isLoading: true, clearError: true));
 
       final user = await _authRepository.createUserWithEmail(
-          email, password, displayName);
+        email,
+        password,
+        displayName,
+      );
 
       if (user == null) {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          errorMessage: 'Account creation failed',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            errorMessage: 'Account creation failed',
+          ),
+        );
         return;
       }
 
       await _authRepository.sendEmailVerification();
 
-      _updateState(_state.copyWith(
-        isLoading: false,
-        successMessage:
-            'Account created! Please check your email for verification.',
-      ));
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          successMessage:
+              'Account created! Please check your email for verification.',
+        ),
+      );
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -167,19 +179,20 @@ class AuthProvider extends ChangeNotifier {
       final user = await _signInWithGoogle();
 
       if (user == null) {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          errorMessage: 'Google sign in was cancelled',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            errorMessage: 'Google sign in was cancelled',
+          ),
+        );
         return;
       }
 
       _updateState(_state.copyWith(isLoading: false));
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -190,19 +203,20 @@ class AuthProvider extends ChangeNotifier {
       final user = await _signInAnonymously();
 
       if (user == null) {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          errorMessage: 'Anonymous sign in failed',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            errorMessage: 'Anonymous sign in failed',
+          ),
+        );
         return;
       }
 
       _updateState(_state.copyWith(isLoading: false));
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -215,27 +229,33 @@ class AuthProvider extends ChangeNotifier {
       _updateState(_state.copyWith(isLoading: true, clearError: true));
 
       final user = await _authRepository.linkAnonymousWithEmail(
-          email, password, displayName);
+        email,
+        password,
+        displayName,
+      );
 
       if (user == null) {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          errorMessage: 'Account linking failed',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            errorMessage: 'Account linking failed',
+          ),
+        );
         return;
       }
 
       await _authRepository.sendEmailVerification();
 
-      _updateState(_state.copyWith(
-        isLoading: false,
-        successMessage: 'Account linked! Please verify your email.',
-      ));
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          successMessage: 'Account linked! Please verify your email.',
+        ),
+      );
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -245,28 +265,33 @@ class AuthProvider extends ChangeNotifier {
 
       await _authRepository.sendPasswordResetEmail(email);
 
-      _updateState(_state.copyWith(
-        isLoading: false,
-        successMessage: 'Password reset email sent!',
-      ));
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          successMessage: 'Password reset email sent!',
+        ),
+      );
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
   Future<void> sendEmailVerification() async {
     try {
       await _authRepository.sendEmailVerification();
-      _updateState(_state.copyWith(
-        successMessage: 'Verification email sent! Please check your inbox.',
-      ));
+      _updateState(
+        _state.copyWith(
+          successMessage: 'Verification email sent! Please check your inbox.',
+        ),
+      );
     } catch (e) {
-      _updateState(_state.copyWith(
-        errorMessage: 'Failed to send verification email: ${e.toString()}',
-      ));
+      _updateState(
+        _state.copyWith(
+          errorMessage: 'Failed to send verification email: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -279,22 +304,28 @@ class AuthProvider extends ChangeNotifier {
 
       if (isVerified) {
         await _loadUserData(_state.user);
-        _updateState(_state.copyWith(
-          isLoading: false,
-          successMessage: 'Email verified successfully!',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            successMessage: 'Email verified successfully!',
+          ),
+        );
       } else {
-        _updateState(_state.copyWith(
-          isLoading: false,
-          status: AuthStatus.emailNotVerified,
-          errorMessage: 'Email is not verified yet. Please check your inbox.',
-        ));
+        _updateState(
+          _state.copyWith(
+            isLoading: false,
+            status: AuthStatus.emailNotVerified,
+            errorMessage: 'Email is not verified yet. Please check your inbox.',
+          ),
+        );
       }
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to check verification status: ${e.toString()}',
-      ));
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          errorMessage: 'Failed to check verification status: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -306,10 +337,9 @@ class AuthProvider extends ChangeNotifier {
 
       _updateState(_state.copyWith(isLoading: false));
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -321,10 +351,44 @@ class AuthProvider extends ChangeNotifier {
 
       _updateState(_state.copyWith(isLoading: false));
     } catch (e) {
-      _updateState(_state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateState(
+        _state.copyWith(isLoading: false, errorMessage: e.toString()),
+      );
+    }
+  }
+
+  Future<void> updateProfile({
+    String? displayName,
+    String? photoURL,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      _updateState(_state.copyWith(isLoading: true, clearError: true));
+
+      await _authRepository.updateUserProfile(
+        displayName: displayName,
+        photoURL: photoURL,
+        additionalData: additionalData,
+      );
+
+      // Reload user to get updated profile
+      await _authRepository.reloadUser();
+      final userData = await _authRepository.getUserData();
+
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          userData: userData,
+          successMessage: 'Profile updated successfully!',
+        ),
+      );
+    } catch (e) {
+      _updateState(
+        _state.copyWith(
+          isLoading: false,
+          errorMessage: 'Failed to update profile: ${e.toString()}',
+        ),
+      );
     }
   }
 

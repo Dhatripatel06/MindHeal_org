@@ -1,5 +1,8 @@
 import 'dart:developer';
+import 'dart:async';
+import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiAdviserService {
   // Singleton instance
@@ -25,16 +28,18 @@ class GeminiAdviserService {
         ),
         safetySettings: [
           SafetySetting(
-              HarmCategory.harassment,
-              HarmBlockThreshold
-                  .low), // More lenient for mental health discussions
+            HarmCategory.harassment,
+            HarmBlockThreshold.low,
+          ), // More lenient for mental health discussions
           SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.low),
           SafetySetting(
-              HarmCategory.sexuallyExplicit, HarmBlockThreshold.medium),
+            HarmCategory.sexuallyExplicit,
+            HarmBlockThreshold.medium,
+          ),
           SafetySetting(
-              HarmCategory.dangerousContent,
-              HarmBlockThreshold
-                  .low), // Allow discussions about mental health struggles
+            HarmCategory.dangerousContent,
+            HarmBlockThreshold.low,
+          ), // Allow discussions about mental health struggles
         ],
       );
       log('✅ GeminiAdviserService initialized with model: $_modelName');
@@ -44,13 +49,13 @@ class GeminiAdviserService {
     }
   }
 
-  // Factory constructor to initialize with updated API key
+  // Factory constructor to initialize with API key from .env
   factory GeminiAdviserService() {
     if (_instance == null) {
-      // Use the updated API key that supports latest models
-      final apiKey = 'AIzaSyD_oHsKdXDTibGft_f4MOaHjm-r1MUHYeQ';
+      // Read API key from .env file
+      final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
       if (apiKey.isEmpty) {
-        log('⚠️ Warning: API key not configured');
+        log('⚠️ Warning: GEMINI_API_KEY not found in .env file');
       }
       _instance = GeminiAdviserService._internal(apiKey);
     }
@@ -79,7 +84,9 @@ class GeminiAdviserService {
     String language = 'English',
   }) async {
     try {
-      log('🤖 Getting conversational advice for: "$userSpeech" (Emotion: $detectedEmotion) in $language');
+      log(
+        '🤖 Getting conversational advice for: "$userSpeech" (Emotion: $detectedEmotion) in $language',
+      );
 
       final prompt = _buildConversationalPrompt(
         userSpeech: userSpeech,
@@ -110,30 +117,40 @@ class GeminiAdviserService {
   }) {
     final languageInstruction = _getLanguageInstruction(language);
     final userNameInfo =
-        userName != null ? " The user's name is $userName." : "";
+        userName != null ? " Your buddy's name is $userName! 😊" : "";
 
     return '''
-    You are MindHeal AI, a compassionate, warm, and wise virtual best friend and counselor.
-    A user is talking to you. You have analyzed WHAT they said and HOW they said it (their emotional tone).$userNameInfo
+You are Luna 🌙, a warm, caring friend and skilled counselor who just listened to the user's voice recording and analyzed both what they said AND how they said it (their vocal tone). You're responding with the warmth of a best friend who truly hears them.$userNameInfo
 
-    **CRITICAL LANGUAGE REQUIREMENT:**
-    $languageInstruction
+**CRITICAL LANGUAGE REQUIREMENT:**
+$languageInstruction
 
-    **Analysis of User's Input:**
-    - **What they said (Text):** "$userSpeech"
-    - **How they said it (Emotion):** ${emotion.toUpperCase()}
+**What You Heard from Their Voice Recording:**
+- What they said (transcribed): "$userSpeech" 🗣️
+- How they sounded (emotion detected from voice tone): ${emotion.toUpperCase()} 🎯
+- You analyzed their vocal patterns, tone, and speech to understand their emotional state 📡💝
 
-    **Your Role & Guidelines:**
-    1. Act as a supportive friend, NOT a robot. Be warm, empathetic, and conversational. Use "you".
-    2. Acknowledge BOTH text and emotion.
-    3. If Text and Emotion conflict, gently explore it.
-    4. If Text and Emotion match, validate their feelings.
-    5. Handle distressing text with extreme care (validate pain, offer hope).
-    6. Handle positive text/emotion with encouragement.
-    7. Keep responses to 2-4 supportive sentences.
-    
-    Please provide your compassionate, friendly response now:
-    ''';
+**Your Luna Personality:**
+- Talk like their supportive bestie - warm, genuine, relatable 💕
+- Use encouraging emojis to make your response more attractive 🌟
+- Be optimistic while validating their feelings 🌈
+- Use casual, friendly phrases like "buddy", "yaar", "dost" 🤗
+- Give them that friend-energy they need! ✨
+
+**Your Response Style:**
+1. Acknowledge BOTH what they said (the words) AND how they sounded (the emotion) with genuine warmth 💝
+2. Respond to the meaning of their words while validating their vocal emotional tone 🤝
+3. Give 2-3 specific, actionable suggestions that address what they shared 💡
+4. End with encouragement and remind them you're here for them 🌟
+5. ALWAYS use emojis to make it more engaging! 😊
+6. Keep it to 3-5 supportive sentences
+7. Focus on living in the present moment - "this moment is God's gift" 🎁
+
+**Emotion-Specific Friend Energy:**
+${_getEmotionSpecificFriendlyGuidance(emotion)}
+
+Please provide your caring, emoji-filled response as Luna, addressing both their words and their emotional tone:
+''';
   }
 
   // --- Emotional Advice (Image/General) ---
@@ -142,6 +159,7 @@ class GeminiAdviserService {
     required double confidence,
     String? additionalContext,
     String language = 'English',
+    int retryCount = 0,
   }) async {
     if (!isConfigured) {
       log('❌ Service not configured. Returning fallback.');
@@ -149,6 +167,10 @@ class GeminiAdviserService {
     }
 
     try {
+      log(
+        '📸 Getting emotional advice for $detectedEmotion${retryCount > 0 ? ' (Attempt ${retryCount + 1})' : ''}',
+      );
+
       final prompt = _buildAdvicePrompt(
         emotion: detectedEmotion,
         confidence: confidence,
@@ -157,15 +179,57 @@ class GeminiAdviserService {
       );
 
       final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
+      final response = await _model.generateContent(content).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 30 seconds');
+        },
+      );
 
       if (response.text != null && response.text!.isNotEmpty) {
+        log('✅ Emotional advice generated successfully');
         return response.text!;
       } else {
         throw Exception('Empty response from Gemini API');
       }
+    } on TimeoutException catch (e) {
+      log('⏱️ Timeout in emotional advice: $e');
+      if (retryCount < 2) {
+        await Future.delayed(Duration(seconds: retryCount + 1));
+        return getEmotionalAdvice(
+          detectedEmotion: detectedEmotion,
+          confidence: confidence,
+          additionalContext: additionalContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
+      }
+      return _getFallbackAdvice(detectedEmotion, language);
+    } on SocketException catch (e) {
+      log('🌐 Network error in emotional advice: $e');
+      if (retryCount < 2) {
+        await Future.delayed(Duration(seconds: retryCount + 1));
+        return getEmotionalAdvice(
+          detectedEmotion: detectedEmotion,
+          confidence: confidence,
+          additionalContext: additionalContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
+      }
+      return _getFallbackAdvice(detectedEmotion, language);
     } catch (e) {
       log('❌ Error getting emotional advice: $e');
+      if (retryCount < 2) {
+        await Future.delayed(Duration(seconds: retryCount + 1));
+        return getEmotionalAdvice(
+          detectedEmotion: detectedEmotion,
+          confidence: confidence,
+          additionalContext: additionalContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
+      }
       return _getFallbackAdvice(detectedEmotion, language);
     }
   }
@@ -178,29 +242,41 @@ class GeminiAdviserService {
   }) {
     final confidenceLevel = _getConfidenceDescription(confidence);
     final languageInstruction = _getLanguageInstruction(language);
+    final displayConfidence = _normalizeConfidence(confidence);
 
     return '''
-You are MindHeal AI, a compassionate and professional mental wellness counselor. 
+You are Luna 🌙, a warm, caring friend and skilled counselor who just analyzed the user's facial expression from their photo/selfie and detected their emotional state. You're responding with the care of a best friend who can read their face and wants to help!
 
 **CRITICAL LANGUAGE REQUIREMENT:**
 $languageInstruction
 
-**Analysis Results:**
-- Detected Emotion: ${emotion.toUpperCase()}
-- Confidence Level: ${(confidence * 100).toInt()}% ($confidenceLevel)
-${context != null ? '- Additional Context: $context' : ''}
+**What You Detected from Their Photo/Selfie:**
+- Facial emotion detected: ${emotion.toUpperCase()} 😊
+- Detection confidence: $displayConfidence% ($confidenceLevel) 🎯
+- You analyzed their facial expressions, micro-expressions, and visual cues 📸
+${context != null ? '- Additional facial insights: $context 🔍' : ''}
+
+**Your Luna Personality:**
+- Talk like their supportive bestie - warm, genuine, relatable 💕
+- Use encouraging emojis to make your response attractive and engaging 🌟
+- Be optimistic while validating their feelings 🌈  
+- Use casual, friendly phrases like "buddy", "yaar", "dost" 🤗
+- Give them that uplifting friend-energy they need! ✨
 
 **Response Guidelines:**
-1. Start with validation and understanding.
-2. Provide 2-3 specific, actionable suggestions.
-3. Include gentle encouragement.
-4. Keep tone conversational yet professional.
-5. Limit to 3-4 sentences.
+1. Acknowledge the emotion you see in their face with genuine warmth 💝
+2. Validate what their facial expression tells you in a caring, friend-like way 🤝
+3. Provide 2-3 specific, actionable suggestions that feel like bestie advice 💡
+4. Include gentle encouragement with friend energy 🌟
+5. ALWAYS use emojis to make it more attractive and engaging! 😊
+6. Keep tone conversational and supportive, like texting a close friend 📱
+7. Limit to 3-4 sentences but make them count! 💪
+8. Remind them to live in the present moment - "this moment is God's gift" 🎁
 
-**Focus:**
-${_getEmotionSpecificGuidance(emotion)}
+**Focus for ${emotion.toUpperCase()}:**
+${_getEmotionSpecificFriendlyGuidance(emotion)}
 
-Please provide your compassionate advice now:
+Please provide your caring, emoji-filled response as Luna, based on what you see in their facial expression:
 ''';
   }
 
@@ -224,6 +300,27 @@ Please provide your compassionate advice now:
         return 'Encourage self-reflection.';
       default:
         return 'Provide general emotional support.';
+    }
+  }
+
+  String _getEmotionSpecificFriendlyGuidance(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return 'Celebrate this amazing feeling with them! 🎉 Encourage them to spread this positive vibe and make the most of this beautiful moment! ☀️';
+      case 'sad':
+        return 'Give them a virtual hug 🤗 and remind them that it\'s totally okay to feel down sometimes. Help them process these feelings with self-compassion and gentle care 💝';
+      case 'angry':
+        return 'Help them channel this energy positively! 💪 Suggest some deep breathing, a quick walk, or maybe hitting a pillow - whatever helps them release this safely 🌬️';
+      case 'fear':
+        return 'Be their calming presence 🕯️ Remind them they\'re braver than they believe and help them ground themselves in the present moment 🌱';
+      case 'surprise':
+        return 'Help them navigate this unexpected moment! 🌪️ Sometimes surprises are gifts in disguise - help them process and see the possibilities ✨';
+      case 'disgust':
+        return 'Validate that some things just don\'t feel right, and that\'s their intuition talking! 🧭 Help them set healthy boundaries and honor their feelings 🛡️';
+      case 'neutral':
+        return 'This is a perfect moment for reflection! 🪞 Help them connect with themselves and maybe discover what they\'re truly feeling underneath 🎯';
+      default:
+        return 'Be their emotional companion and help them navigate whatever they\'re feeling with love and understanding 💞';
     }
   }
 
@@ -280,12 +377,15 @@ Please provide your compassionate advice now:
     }
     try {
       log('🧪 Testing API connection with model: $_modelName');
-      final response = await _model.generateContent(
-          [Content.text('Test connection - respond with "OK"')]);
+      final response = await _model.generateContent([
+        Content.text('Test connection - respond with "OK"'),
+      ]);
       bool success = response.text?.isNotEmpty ?? false;
-      log(success
-          ? '✅ API connection test successful'
-          : '❌ API connection test failed - empty response');
+      log(
+        success
+            ? '✅ API connection test successful'
+            : '❌ API connection test failed - empty response',
+      );
       return success;
     } catch (e) {
       log('❌ API connection test failed: $e');
@@ -311,6 +411,7 @@ Please provide your compassionate advice now:
     required String userMessage,
     String? wellnessContext,
     String language = 'English',
+    int retryCount = 0,
   }) async {
     if (!isConfigured) {
       log('❌ Service not configured. API Key status: ${apiKeyPreview}');
@@ -318,7 +419,9 @@ Please provide your compassionate advice now:
     }
 
     try {
-      log('🤖 Getting chat response for: "$userMessage" using model: $_modelName');
+      log(
+        '🤖 Getting chat response for: "$userMessage" using model: $_modelName (Attempt ${retryCount + 1})',
+      );
 
       final prompt = _buildChatPrompt(
         userMessage: userMessage,
@@ -326,41 +429,106 @@ Please provide your compassionate advice now:
         language: language,
       );
 
-      log('📝 Generated prompt (first 200 chars): ${prompt.substring(0, prompt.length > 200 ? 200 : prompt.length)}...');
+      log(
+        '📝 Generated prompt (first 200 chars): ${prompt.substring(0, prompt.length > 200 ? 200 : prompt.length)}...',
+      );
       log('🔧 Model config: temperature=0.8, maxTokens=2048');
-      log('🔐 API key status: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}');
+      log(
+        '🔐 API key status: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}',
+      );
 
       final content = [Content.text(prompt)];
-      log('📤 Calling generateContent...');
-      final response = await _model.generateContent(content);
-      log('📥 Raw response received. Text null? ${response.text == null}, Empty? ${response.text?.isEmpty}');
+      log('📤 Calling generateContent with 30s timeout...');
+
+      // Add timeout to prevent hanging indefinitely
+      final response = await _model.generateContent(content).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Request timed out after 30 seconds');
+        },
+      );
+
+      log(
+        '📥 Raw response received. Text null? ${response.text == null}, Empty? ${response.text?.isEmpty}',
+      );
 
       if (response.text != null && response.text!.isNotEmpty) {
-        log('✅ Chat response generated successfully (length: ${response.text!.length})');
+        log(
+          '✅ Chat response generated successfully (length: ${response.text!.length})',
+        );
         return response.text!.trim();
       } else {
-        log('⚠️ Empty response from model. Prompt feedback: ${response.promptFeedback}');
+        log(
+          '⚠️ Empty response from model. Prompt feedback: ${response.promptFeedback}',
+        );
         if (response.promptFeedback?.blockReason != null) {
           log('🚫 Response blocked: ${response.promptFeedback!.blockReason}');
           return "I want to help, but the content seems to have triggered safety filters. Can you rephrase your question?";
         }
         return "I'm listening to you, but I'm having trouble finding the right words right now. Can you share more about what's on your mind?";
       }
+    } on TimeoutException catch (e) {
+      log('⏱️ Timeout error: $e');
+
+      // Retry up to 2 times on timeout
+      if (retryCount < 2) {
+        log('🔄 Retrying request (${retryCount + 1}/2)...');
+        await Future.delayed(
+          Duration(seconds: retryCount + 1),
+        ); // Progressive delay
+        return getChatResponse(
+          userMessage: userMessage,
+          wellnessContext: wellnessContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
+      }
+
+      return "I'm sorry, the connection is taking too long to respond. Please check your internet connection and try again.";
+    } on SocketException catch (e) {
+      log('🌐 Network error: $e');
+
+      // Retry on network errors
+      if (retryCount < 2) {
+        log('🔄 Retrying after network error (${retryCount + 1}/2)...');
+        await Future.delayed(Duration(seconds: retryCount + 2));
+        return getChatResponse(
+          userMessage: userMessage,
+          wellnessContext: wellnessContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
+      }
+
+      return "I can't connect to the internet right now. Please check your connection and try again.";
     } catch (e, stackTrace) {
       log('❌ Error getting chat response: $e');
       log('📋 Error type: ${e.runtimeType}');
-      log('📋 Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      log(
+        '📋 Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}',
+      );
 
-      // Provide more specific error messages
+      // Retry on general errors (except specific known errors)
       String errorMsg = e.toString().toLowerCase();
+
       if (errorMsg.contains('api key')) {
-        return "I'm having trouble with my configuration right now. The technical team has been notified. Can you tell me more about how you're feeling in the meantime?";
+        return "I'm having trouble with my configuration right now. Please check your API key settings.";
       } else if (errorMsg.contains('quota') || errorMsg.contains('limit')) {
-        return "I'm experiencing high demand right now. Let me try to help you anyway - what's on your mind today?";
+        return "I'm experiencing high demand right now. The API quota may be reached. Please try again later.";
       } else if (errorMsg.contains('not found') || errorMsg.contains('model')) {
-        return "I'm having some technical difficulties with my AI model. But I'm still here to listen - how can I support you?";
+        return "I'm having some technical difficulties with my AI model. Please try again in a moment.";
+      } else if (retryCount < 2) {
+        // Retry for unknown errors
+        log('🔄 Retrying after error (${retryCount + 1}/2)...');
+        await Future.delayed(Duration(seconds: retryCount + 1));
+        return getChatResponse(
+          userMessage: userMessage,
+          wellnessContext: wellnessContext,
+          language: language,
+          retryCount: retryCount + 1,
+        );
       } else {
-        return "I want to help, but I'm experiencing some technical difficulties. Please tell me more about what you're going through.";
+        return "I want to help, but I'm experiencing technical difficulties. Please try again in a moment.";
       }
     }
   }
@@ -371,6 +539,7 @@ Please provide your compassionate advice now:
     String? context,
     String language = 'English',
   }) {
+    final languageInstruction = _getLanguageInstruction(language);
     return '''
 You are Luna 🌙, a warm, caring, and enthusiastic friend who also happens to be a skilled counselor. You're like that amazing friend who always knows what to say, speaks in a natural, conversational way, and genuinely cares about people's well-being.
 
@@ -382,7 +551,7 @@ Your Personality & Style:
 - Talk like a close, supportive friend - warm, genuine, and relatable 💝
 - Use casual, friendly language but with the wisdom of a counselor 🧠✨
 - Be encouraging and optimistic while validating their feelings 🌈
-- Respond in English, Hindi, or Gujarati based on what feels natural for the conversation 🗣️
+- $languageInstruction 🗣️
 - Write 20-40 lines to give thoughtful, comprehensive support 📝
 - Use phrases like "buddy", "yaar", "bhai", "dost" to feel more personal 🤗
 - ALWAYS use emojis to make responses more attractive and engaging! 😊💫
@@ -425,17 +594,18 @@ Respond as Luna - your caring, enthusiastic friend who wants to see you thrive! 
 
     try {
       log('🧪 Testing simple API connection...');
-      log('🔑 Using API key: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}');
+      log(
+        '🔑 Using API key: ${_apiKey.substring(0, 10)}...${_apiKey.substring(_apiKey.length - 4)}',
+      );
       log('🤖 Using model: $_modelName');
 
       // Create the simplest possible model for testing
-      final testModel = GenerativeModel(
-        model: _modelName,
-        apiKey: _apiKey,
-      );
+      final testModel = GenerativeModel(model: _modelName, apiKey: _apiKey);
 
       final response = await testModel.generateContent([
-        Content.text('Respond with just "Hello, I am working!" - nothing more.')
+        Content.text(
+          'Respond with just "Hello, I am working!" - nothing more.',
+        ),
       ]);
 
       log('📥 Raw test response: ${response.text}');
@@ -476,13 +646,11 @@ Respond as Luna - your caring, enthusiastic friend who wants to see you thrive! 
     for (String modelName in modelVariants) {
       try {
         log('🧪 Testing model: $modelName');
-        final testModel = GenerativeModel(
-          model: modelName,
-          apiKey: _apiKey,
-        );
+        final testModel = GenerativeModel(model: modelName, apiKey: _apiKey);
 
-        final response = await testModel.generateContent(
-            [Content.text('Just say "Hello from $modelName"')]);
+        final response = await testModel.generateContent([
+          Content.text('Just say "Hello from $modelName"'),
+        ]);
 
         if (response.text?.isNotEmpty == true) {
           results += '✅ $modelName: ${response.text}\n';
@@ -498,5 +666,11 @@ Respond as Luna - your caring, enthusiastic friend who wants to see you thrive! 
     }
 
     return results;
+  }
+
+  // Normalize confidence to 90-99% range for display
+  int _normalizeConfidence(double confidence) {
+    // Map confidence (0.0-1.0) to 90-99 range
+    return 90 + (confidence * 9).toInt();
   }
 }

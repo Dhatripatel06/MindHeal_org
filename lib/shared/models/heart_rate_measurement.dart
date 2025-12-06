@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum MeasurementMethod { camera, smartwatch, manual }
+enum MeasurementMethod { camera, manual }
 
 class HeartRateMeasurement {
   final String? id;

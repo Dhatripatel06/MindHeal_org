@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:mental_wellness_app/features/mood_detection/data/models/mood_session.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/services/firestore_service.dart';
+import '../../../mood_detection/data/models/emotion_result.dart';
 import '../providers/mood_detection_provider.dart';
 import '../widgets/mood_option_card.dart';
 import 'image_mood_detection_page.dart';
 import 'audio_mood_detection_page.dart';
-import 'combined_mood_detection_page.dart';
 
 class MoodSelectionPage extends StatefulWidget {
   const MoodSelectionPage({super.key});
@@ -54,12 +54,6 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
         backgroundColor: Colors.blue,
         elevation: 2,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () => _showSettingsDialog(),
-          ),
-        ],
       ),
       body: Consumer<MoodDetectionProvider>(
         builder: (context, provider, child) {
@@ -72,10 +66,6 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
                 children: [
                   // Welcome Section
                   _buildWelcomeSection(),
-                  const SizedBox(height: 24),
-
-                  // Quick Stats Dashboard
-                  _buildQuickStats(provider),
                   const SizedBox(height: 24),
 
                   // Detection Options
@@ -172,97 +162,6 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
     );
   }
 
-  Widget _buildQuickStats(MoodDetectionProvider provider) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Today\'s Overview',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  'Sessions',
-                  '${provider.todaySessions}',
-                  Icons.analytics,
-                  Colors.blue,
-                ),
-              ),
-              Expanded(
-                child: _buildStatItem(
-                  'Avg Mood',
-                  provider.averageMood,
-                  Icons.sentiment_satisfied,
-                  Colors.green,
-                ),
-              ),
-              Expanded(
-                child: _buildStatItem(
-                  'Streak',
-                  '${provider.streak} days',
-                  Icons.local_fire_department,
-                  Colors.orange,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(
-      String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildOptionCards() {
     return Column(
       children: [
@@ -291,24 +190,13 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        MoodOptionCard(
-          title: 'Combined Analysis',
-          subtitle: 'Enhanced accuracy with image + audio',
-          icon: Icons.psychology,
-          color: Colors.purple,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CombinedMoodDetectionPage(),
-            ),
-          ),
-        ),
       ],
     );
   }
 
   Widget _buildRecentHistory(MoodDetectionProvider provider) {
+    final firestoreService = FirestoreService();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -329,7 +217,7 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Recent Activity',
+                'Recent Mood Detections',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -343,15 +231,63 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
             ],
           ),
           const SizedBox(height: 12),
-          ...provider.recentSessions
-              .take(3)
-              .map((session) => _buildHistoryItem(session)),
+          StreamBuilder<List<EmotionResult>>(
+            stream: firestoreService.getMoodHistory(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.mood_outlined,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No mood detections yet',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Start detecting your mood above!',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final recentDetections = snapshot.data!.take(3).toList();
+              return Column(
+                children: recentDetections
+                    .map((detection) => _buildMoodDetectionItem(detection))
+                    .toList(),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHistoryItem(MoodSession session) {
+  Widget _buildMoodDetectionItem(EmotionResult detection) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -359,12 +295,12 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _getEmotionColor(session.dominantEmotion).withOpacity(0.1),
+              color: _getEmotionColor(detection.emotion).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              _getEmotionIcon(session.dominantEmotion),
-              color: _getEmotionColor(session.dominantEmotion),
+              _getEmotionIcon(detection.emotion),
+              color: _getEmotionColor(detection.emotion),
               size: 20,
             ),
           ),
@@ -374,14 +310,14 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  session.dominantEmotion.toUpperCase(),
+                  detection.emotion.toUpperCase(),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Colors.grey[800],
                   ),
                 ),
                 Text(
-                  '${session.confidence.toInt()}% confidence',
+                  '${(detection.confidence * 100).toInt()}% confidence',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -390,12 +326,24 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
               ],
             ),
           ),
-          Text(
-            _formatTime(session.timestamp),
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatTime(detection.timestamp),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+              ),
+              Text(
+                _formatDate(detection.timestamp),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[400],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -536,7 +484,7 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
   }
 
   void _showFullHistory() {
-    // Navigate to full history page
+    Navigator.pushNamed(context, '/history');
   }
 
   Color _getEmotionColor(String emotion) {
@@ -587,6 +535,20 @@ class _MoodSelectionPageState extends State<MoodSelectionPage>
       return '${difference.inHours}h ago';
     } else {
       return '${difference.inDays}d ago';
+    }
+  }
+
+  String _formatDate(DateTime time) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateToCheck = DateTime(time.year, time.month, time.day);
+
+    if (dateToCheck == today) {
+      return 'Today';
+    } else if (dateToCheck == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
+    } else {
+      return '${time.day}/${time.month}';
     }
   }
 }

@@ -5,7 +5,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/biofeedback_provider.dart';
 import 'heart_rate_page.dart';
-import 'smartwatch_connection_page.dart';
+import 'biofeedback_history_page.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../../../../shared/models/heart_rate_measurement.dart';
 
@@ -24,6 +24,8 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
   late Animation<double> _breathingAnimation;
 
   final FirestoreService _firestoreService = FirestoreService();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _breathingKey = GlobalKey();
 
   @override
   void initState() {
@@ -62,6 +64,7 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
   void dispose() {
     _pulseController.dispose();
     _breathingController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -73,6 +76,7 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
         child: Consumer<BiofeedbackProvider>(
           builder: (context, provider, child) {
             return CustomScrollView(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(),
               slivers: [
                 // App Bar with solid background
@@ -144,13 +148,11 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
 
                       const SizedBox(height: 25),
 
-                      // Smartwatch Connection
-                      _buildSmartwatchSection(),
-
-                      const SizedBox(height: 25),
-
                       // Breathing Exercise
-                      _buildBreathingExercise(),
+                      Container(
+                        key: _breathingKey,
+                        child: _buildBreathingExercise(),
+                      ),
                     ]),
                   ),
                 ),
@@ -512,84 +514,6 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
     );
   }
 
-  Widget _buildSmartwatchSection() {
-    return AnimationConfiguration.staggeredList(
-      position: 3,
-      duration: const Duration(milliseconds: 800),
-      child: SlideAnimation(
-        verticalOffset: 50.0,
-        child: FadeInAnimation(
-          child: Container(
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.1),
-                  blurRadius: 15,
-                  spreadRadius: 3,
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.watch,
-                        color: Colors.blue,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Smartwatch Integration',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
-                          ),
-                          SizedBox(height: 5),
-                          Text(
-                            'Sync data from your wearable',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildGradientButton(
-                  'Connect Watch',
-                  Icons.bluetooth,
-                  [Colors.blue, Colors.blue.shade700],
-                  () => _navigateToSmartwatchConnection(),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBreathingExercise() {
     return AnimationConfiguration.staggeredList(
       position: 4,
@@ -726,14 +650,6 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
     );
   }
 
-  void _navigateToSmartwatchConnection() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const SmartwatchConnectionPage(),
-      ),
-    );
-  }
-
   void _navigateToHeartRateMonitor() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -840,8 +756,7 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
           'This feature monitors your physiological signals:\n\n'
           '• Heart Rate: PPG-based camera detection\n'
           '• Stress Level: HRV analysis\n'
-          '• Breathing Rate: Respiratory monitoring\n'
-          '• Smartwatch Integration: Sync with wearables\n\n'
+          '• Breathing Rate: Respiratory monitoring\n\n'
           'Place your finger gently over the camera and flash for accurate readings.',
         ),
         actions: [
@@ -891,19 +806,22 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
   }
 
   void _startBreathingExercise() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Starting guided breathing exercise...'),
-        backgroundColor: Colors.blue,
-      ),
-    );
+    // Scroll to breathing exercise section
+    final context = _breathingKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOut,
+        alignment: 0.0, // Align to top of viewport
+      );
+    }
   }
 
   void _showHistoryPage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Opening biometric history...'),
-        backgroundColor: Colors.purple,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const BiofeedbackHistoryPage(),
       ),
     );
   }
@@ -1180,8 +1098,6 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
         return Icons.camera_alt;
       case MeasurementMethod.manual:
         return Icons.edit;
-      case MeasurementMethod.smartwatch:
-        return Icons.watch;
     }
   }
 
@@ -1191,8 +1107,6 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
         return const Color(0xFF4CAF50);
       case MeasurementMethod.manual:
         return const Color(0xFF2196F3);
-      case MeasurementMethod.smartwatch:
-        return const Color(0xFF9C27B0);
     }
   }
 
@@ -1202,8 +1116,6 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
         return 'CAMERA';
       case MeasurementMethod.manual:
         return 'MANUAL';
-      case MeasurementMethod.smartwatch:
-        return 'WATCH';
     }
   }
 

@@ -220,7 +220,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
             const SizedBox(width: 16),
             const Expanded(
               child: Text(
-                'AI Emotion Detection',
+                'Emotion Detection',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -303,7 +303,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
           ),
           const SizedBox(height: 24),
           Text(
-            'AI Emotion Detection',
+            'Emotion Detection',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -314,7 +314,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              'Powered by EfficientNet-B0 ONNX model\nSelect an image to analyze emotions with advanced AI',
+              'Powered by  ONNX model\nSelect an image to analyze emotions with advanced ML model',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -358,7 +358,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'AI Analyzing Emotions...',
+                    'Analyzing Emotions...',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -367,7 +367,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Using EfficientNet-B0 ONNX deep learning model',
+                    'Using ONNX deep learning model',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
@@ -448,7 +448,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
         child: Center(
           child: Text(
             _selectedImageFile == null
-                ? 'Select an image to start AI emotion detection'
+                ? 'Select an image to start emotion detection'
                 : 'Upload an image with a clear human face',
             style: TextStyle(
               fontSize: 16,
@@ -596,7 +596,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
                   Icon(Icons.model_training, size: 14, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
-                    'EfficientNet-B0',
+                    'ONNX Model',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -811,7 +811,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
     final isValidImage = await _validateImageWithFace(imageFile);
     if (!isValidImage) {
       _showWarningDialog(
-        'No human face detected in the image.\nThe AI model will still attempt to analyze emotions, but results may be less accurate.',
+        'No human face detected in the image.\nThe  model will still attempt to analyze emotions, but results may be less accurate.',
       );
     }
 
@@ -908,7 +908,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Saved locally. Sign in to sync across devices.'),
+              content: Text('Saved '),
               backgroundColor: Colors.blue,
             ),
           );
@@ -1019,7 +1019,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Analyzed using EfficientNet-B0 ONNX model trained on AFEW dataset',
+                            'Analyzed using ONNX model trained on AFEW dataset',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue[800],

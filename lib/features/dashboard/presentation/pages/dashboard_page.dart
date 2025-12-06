@@ -22,13 +22,6 @@ class _DashboardPageState extends State<DashboardPage> {
         title: const Text('Dashboard'),
         centerTitle: false,
         actions: [
-          // Notification bell
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // Handle notifications
-            },
-          ),
           // User profile
           Consumer<AuthProvider>(
             builder: (context, authProvider, child) {
@@ -93,39 +86,40 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Welcome Section
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Good Morning!',
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'How are you feeling today?',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.grey[600],
+            SizedBox(
+              width: double.infinity,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      final userName = authProvider.user?.displayName ??
+                          authProvider.user?.email?.split('@')[0] ??
+                          'User';
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hey $userName! 👋✨',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        _buildMoodButton(context, '😊', 'Great'),
-                        const SizedBox(width: 8),
-                        _buildMoodButton(context, '😌', 'Good'),
-                        const SizedBox(width: 8),
-                        _buildMoodButton(context, '😐', 'Okay'),
-                        const SizedBox(width: 8),
-                        _buildMoodButton(context, '😟', 'Low'),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'How are you feeling today? 🌟',
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -295,7 +289,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   context,
                   'Wellness Chat',
                   Icons.chat,
-                  Colors.teal,
+                  Colors.blue,
                   '/chat',
                 ),
               ],
@@ -510,6 +504,6 @@ Color _getMoodColor(String? emotion) {
     case 'neutral':
       return Colors.grey;
     default:
-      return Colors.teal;
+      return Colors.blue;
   }
 }

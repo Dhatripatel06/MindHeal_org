@@ -20,13 +20,17 @@ class ProfilePage extends StatelessWidget {
           }
 
           final user = authProvider.state.user;
-          
+
           if (user == null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline, size: 64, color: Colors.grey),
+                  const Icon(
+                    Icons.person_outline,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(height: 16),
                   const Text('No user data available'),
                   const SizedBox(height: 16),
@@ -40,7 +44,7 @@ class ProfilePage extends StatelessWidget {
               ),
             );
           }
-          
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -59,7 +63,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // User Info
                 Card(
                   child: Padding(
@@ -75,11 +79,15 @@ class ProfilePage extends StatelessWidget {
                           leading: const Icon(Icons.verified_user_outlined),
                           title: const Text('Email Verified'),
                           subtitle: Text(user.emailVerified ? 'Yes' : 'No'),
-                          trailing: user.emailVerified 
-                              ? const Icon(Icons.check_circle, color: Colors.green)
+                          trailing: user.emailVerified
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                )
                               : const Icon(Icons.cancel, color: Colors.red),
                         ),
-                        if (user.displayName != null && user.displayName!.isNotEmpty)
+                        if (user.displayName != null &&
+                            user.displayName!.isNotEmpty)
                           ListTile(
                             leading: const Icon(Icons.person_outlined),
                             title: const Text('Display Name'),
@@ -89,12 +97,18 @@ class ProfilePage extends StatelessWidget {
                           leading: const Icon(Icons.access_time),
                           title: const Text('Member Since'),
                           subtitle: Text(
-                            user.metadata.creationTime?.toString().split(' ')[0] ?? 'Unknown',
+                            user.metadata.creationTime?.toString().split(
+                                  ' ',
+                                )[0] ??
+                                'Unknown',
                           ),
                         ),
                         if (user.isAnonymous)
                           ListTile(
-                            leading: const Icon(Icons.person_outline, color: Colors.orange),
+                            leading: const Icon(
+                              Icons.person_outline,
+                              color: Colors.orange,
+                            ),
                             title: const Text('Account Type'),
                             subtitle: const Text('Anonymous User'),
                             trailing: ElevatedButton(
@@ -108,9 +122,9 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Action Buttons
                 if (!user.isAnonymous) ...[
                   Card(
@@ -121,12 +135,17 @@ class ProfilePage extends StatelessWidget {
                           title: const Text('Edit Profile'),
                           trailing: const Icon(Icons.arrow_forward_ios),
                           onTap: () {
-                            _showEditProfileDialog(context, user.displayName ?? '');
+                            _showEditProfileDialog(
+                              context,
+                              user.displayName ?? '',
+                            );
                           },
                         ),
                         if (!user.emailVerified)
                           ListTile(
-                            leading: const Icon(Icons.mark_email_unread_outlined),
+                            leading: const Icon(
+                              Icons.mark_email_unread_outlined,
+                            ),
                             title: const Text('Verify Email'),
                             trailing: const Icon(Icons.arrow_forward_ios),
                             onTap: () {
@@ -146,7 +165,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                 ],
-                
+
                 // Sign Out Button
                 SizedBox(
                   width: double.infinity,
@@ -163,7 +182,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                
+
                 // Success/Error Messages
                 if (authProvider.state.hasSuccess)
                   Container(
@@ -191,7 +210,7 @@ class ProfilePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                
+
                 if (authProvider.state.hasError)
                   Container(
                     margin: const EdgeInsets.only(top: 16),
@@ -231,7 +250,9 @@ class ProfilePage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Link Account'),
-        content: const Text('Link your anonymous account with email and password to save your progress permanently.'),
+        content: const Text(
+          'Link your anonymous account with email and password to save your progress permanently.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -251,7 +272,8 @@ class ProfilePage extends StatelessWidget {
 
   void _showEditProfileDialog(BuildContext context, String currentName) {
     final nameController = TextEditingController(text: currentName);
-    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -261,6 +283,7 @@ class ProfilePage extends StatelessWidget {
           decoration: const InputDecoration(
             labelText: 'Display Name',
             border: OutlineInputBorder(),
+            hintText: 'Enter your name',
           ),
         ),
         actions: [
@@ -269,11 +292,40 @@ class ProfilePage extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a display name'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile updated!')),
-              );
+
+              // Update profile using AuthProvider
+              await authProvider.updateProfile(displayName: newName);
+
+              if (context.mounted) {
+                if (authProvider.state.hasError) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(authProvider.state.errorMessage),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                } else if (authProvider.state.hasSuccess) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(authProvider.state.successMessage),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Save'),
           ),
@@ -282,9 +334,12 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context, AuthProvider authProvider) {
+  void _showChangePasswordDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) {
     final emailController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -292,7 +347,9 @@ class ProfilePage extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your email address to receive a password reset link:'),
+            const Text(
+              'Enter your email address to receive a password reset link:',
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: emailController,
@@ -320,7 +377,10 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Future<void> _showSignOutDialog(BuildContext context, AuthProvider authProvider) async {
+  Future<void> _showSignOutDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) async {
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(

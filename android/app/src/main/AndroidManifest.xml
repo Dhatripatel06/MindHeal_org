@@ -1,5 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.mentalwellness.app">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.CAMERA" />

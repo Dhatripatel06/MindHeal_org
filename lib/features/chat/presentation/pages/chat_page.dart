@@ -21,6 +21,7 @@ class _ChatPageState extends State<ChatPage> {
   final FirestoreService _firestoreService = FirestoreService();
 
   bool _isLoading = false;
+  bool _isSavingEnabled = true; // Toggle for saving chats
 
   // Chat session management
   String _currentChatId = '';
@@ -100,19 +101,22 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                     if (_selectedLanguage == 'English') ...[
                       const Spacer(),
-                      Icon(Icons.check,
-                          color: Theme.of(context).primaryColor, size: 16),
+                      Icon(
+                        Icons.check,
+                        color: Theme.of(context).primaryColor,
+                        size: 16,
+                      ),
                     ],
                   ],
                 ),
               ),
               PopupMenuItem<String>(
-                value: 'Hindi',
+                value: 'हिंदी',
                 child: Row(
                   children: [
                     Icon(
                       Icons.language,
-                      color: _selectedLanguage == 'Hindi'
+                      color: _selectedLanguage == 'हिंदी'
                           ? Theme.of(context).primaryColor
                           : Colors.grey,
                     ),
@@ -120,29 +124,32 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       'हिंदी (Hindi)',
                       style: TextStyle(
-                        fontWeight: _selectedLanguage == 'Hindi'
+                        fontWeight: _selectedLanguage == 'हिंदी'
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: _selectedLanguage == 'Hindi'
+                        color: _selectedLanguage == 'हिंदी'
                             ? Theme.of(context).primaryColor
                             : null,
                       ),
                     ),
-                    if (_selectedLanguage == 'Hindi') ...[
+                    if (_selectedLanguage == 'हिंदी') ...[
                       const Spacer(),
-                      Icon(Icons.check,
-                          color: Theme.of(context).primaryColor, size: 16),
+                      Icon(
+                        Icons.check,
+                        color: Theme.of(context).primaryColor,
+                        size: 16,
+                      ),
                     ],
                   ],
                 ),
               ),
               PopupMenuItem<String>(
-                value: 'Gujarati',
+                value: 'ગુજરાતી',
                 child: Row(
                   children: [
                     Icon(
                       Icons.language,
-                      color: _selectedLanguage == 'Gujarati'
+                      color: _selectedLanguage == 'ગુજરાતી'
                           ? Theme.of(context).primaryColor
                           : Colors.grey,
                     ),
@@ -150,20 +157,68 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       'ગુજરાતી (Gujarati)',
                       style: TextStyle(
-                        fontWeight: _selectedLanguage == 'Gujarati'
+                        fontWeight: _selectedLanguage == 'ગુજરાતી'
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: _selectedLanguage == 'Gujarati'
+                        color: _selectedLanguage == 'ગુજરાતી'
                             ? Theme.of(context).primaryColor
                             : null,
                       ),
                     ),
-                    if (_selectedLanguage == 'Gujarati') ...[
+                    if (_selectedLanguage == 'ગુજરાતી') ...[
                       const Spacer(),
-                      Icon(Icons.check,
-                          color: Theme.of(context).primaryColor, size: 16),
+                      Icon(
+                        Icons.check,
+                        color: Theme.of(context).primaryColor,
+                        size: 16,
+                      ),
                     ],
                   ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                enabled: false,
+                child: StatefulBuilder(
+                  builder: (context, setMenuState) {
+                    return Row(
+                      children: [
+                        Icon(
+                          _isSavingEnabled ? Icons.save : Icons.save_outlined,
+                          color: _isSavingEnabled
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Save Chats',
+                            style: TextStyle(color: Colors.black87),
+                          ),
+                        ),
+                        Switch(
+                          value: _isSavingEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              _isSavingEnabled = value;
+                            });
+                            setMenuState(() {}); // Update menu item
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  _isSavingEnabled
+                                      ? 'Chat saving enabled 💾'
+                                      : 'Chat saving disabled 🚫',
+                                ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          activeColor: Theme.of(context).primaryColor,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -213,9 +268,7 @@ class _ChatPageState extends State<ChatPage> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               border: Border(
-                top: BorderSide(
-                  color: Colors.grey.withOpacity(0.2),
-                ),
+                top: BorderSide(color: Colors.grey.withOpacity(0.2)),
               ),
             ),
             child: Row(
@@ -311,11 +364,7 @@ class _ChatPageState extends State<ChatPage> {
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
-                Icons.person,
-                color: Colors.grey,
-                size: 20,
-              ),
+              child: const Icon(Icons.person, color: Colors.grey, size: 20),
             ),
           ],
         ],
@@ -398,10 +447,7 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Icon(icon, size: 16, color: Colors.grey[600]),
             const SizedBox(width: 4),
-            Text(
-              text,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            Text(text, style: TextStyle(color: Colors.grey[600])),
           ],
         ),
       ),
@@ -434,10 +480,12 @@ class _ChatPageState extends State<ChatPage> {
       // Check if service is configured
       if (!_geminiService.isConfigured) {
         print(
-            '❌ Gemini service not configured! API key: ${_geminiService.apiKeyPreview}');
+          '❌ Gemini service not configured! API key: ${_geminiService.apiKeyPreview}',
+        );
       } else {
         print(
-            '✅ Gemini service configured. API key: ${_geminiService.apiKeyPreview}');
+          '✅ Gemini service configured. API key: ${_geminiService.apiKeyPreview}',
+        );
       }
 
       // Get user's wellness history
@@ -445,7 +493,8 @@ class _ChatPageState extends State<ChatPage> {
       final moodHistory = await _getMoodHistory();
       final bpmHistory = await _getBpmHistory();
       print(
-          '📊 Mood history: ${moodHistory.length} entries, BPM history: ${bpmHistory.length} entries');
+        '📊 Mood history: ${moodHistory.length} entries, BPM history: ${bpmHistory.length} entries',
+      );
 
       // Create comprehensive prompt for Gemini
       final prompt = _buildCounselorPrompt(userInput, moodHistory, bpmHistory);
@@ -459,7 +508,8 @@ class _ChatPageState extends State<ChatPage> {
         language: _selectedLanguage,
       );
       print(
-          '✅ Gemini response received (${response.length} chars): ${response.substring(0, response.length > 100 ? 100 : response.length)}...');
+        '✅ Gemini response received (${response.length} chars): ${response.substring(0, response.length > 100 ? 100 : response.length)}...',
+      );
 
       final aiMessage = ChatMessage(
         text: response,
@@ -519,12 +569,16 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  String _buildCounselorPrompt(String userInput,
-      List<EmotionResult> moodHistory, List<HeartRateMeasurement> bpmHistory) {
+  String _buildCounselorPrompt(
+    String userInput,
+    List<EmotionResult> moodHistory,
+    List<HeartRateMeasurement> bpmHistory,
+  ) {
     final buffer = StringBuffer();
 
     buffer.writeln(
-        "You are a compassionate AI wellness counselor and friend. Respond warmly, empathetically, and provide helpful guidance.");
+      "You are a compassionate AI wellness counselor and friend. Respond warmly, empathetically, and provide helpful guidance.",
+    );
     buffer.writeln("User Message: \"$userInput\"");
     buffer.writeln();
 
@@ -535,7 +589,8 @@ class _ChatPageState extends State<ChatPage> {
         final mood = moodHistory[i];
         final timeAgo = _getTimeAgo(mood.timestamp);
         buffer.writeln(
-            "- ${mood.emotion} (${(mood.confidence * 100).toInt()}% confidence) - $timeAgo");
+          "- ${mood.emotion} (${(mood.confidence * 100).toInt()}% confidence) - $timeAgo",
+        );
       }
       buffer.writeln();
     }
@@ -557,7 +612,8 @@ class _ChatPageState extends State<ChatPage> {
     buffer.writeln("- Reference their mood and health patterns when relevant");
     buffer.writeln("- Provide practical advice and coping strategies");
     buffer.writeln(
-        "- Ask follow-up questions to understand their feelings better");
+      "- Ask follow-up questions to understand their feelings better",
+    );
     buffer.writeln("- Suggest relaxation techniques if they seem stressed");
     buffer.writeln("- Keep responses conversational and encouraging");
     buffer.writeln("- Limit response to 2-3 paragraphs maximum");
@@ -601,11 +657,13 @@ class _ChatPageState extends State<ChatPage> {
       String welcomeMessage = _getWelcomeMessage();
       setState(() {
         _messages.clear();
-        _messages.add(ChatMessage(
-          text: welcomeMessage,
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            text: welcomeMessage,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
       _scrollToBottom();
     } else {
@@ -625,11 +683,11 @@ class _ChatPageState extends State<ChatPage> {
   String _getWelcomeMessage() {
     switch (_selectedLanguage) {
       case 'Hindi':
-        return "नमस्ते! 🌙 मैं Luna हूं, आपकी देखभाल करने वाली दोस्त और wellness साथी। आज आप कैसा महसूस कर रहे हैं? 💝";
+        return "नमस्ते! 🌙 मैं MindHeal हूं, आपकी देखभाल करने वाली दोस्त और wellness साथी। आज आप कैसा महसूस कर रहे हैं? 💝";
       case 'Gujarati':
-        return "નમસ્તે! 🌙 હું Luna છું, તમારી કેરિંગ મિત્ર અને wellness સાથી. આજે તમે કેવું લાગે છે? 💝";
+        return "નમસ્તે! 🌙 હું MindHeal છું, તમારી કેરિંગ મિત્ર અને wellness સાથી. આજે તમે કેવું લાગે છે? 💝";
       default:
-        return "Hi there! 🌙 I'm Luna, your caring friend and wellness companion. How are you feeling today? 💝";
+        return "Hi there! 🌙 I'm MindHeal, your caring friend and wellness companion. How are you feeling today? 💝";
     }
   }
 
@@ -733,8 +791,9 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('Chat history unavailable - messages won\'t be saved'),
+            content: Text(
+              'Chat history unavailable - messages won\'t be saved',
+            ),
             duration: Duration(seconds: 3),
           ),
         );
@@ -743,6 +802,9 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _saveMessageToFirestore(ChatMessage message) async {
+    // Check if saving is enabled
+    if (!_isSavingEnabled) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || _currentChatId.isEmpty) return;
 
@@ -811,26 +873,33 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   String _formatChatDate(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    try {
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
 
-    if (difference.inDays == 0) {
-      // Today
-      return 'Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else if (difference.inDays == 1) {
-      // Yesterday
-      return 'Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else if (difference.inDays < 7) {
-      // This week
-      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return '${weekdays[dateTime.weekday - 1]} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } else {
-      // More than a week
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+      if (difference.inDays == 0) {
+        // Today
+        return 'Today ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays == 1) {
+        // Yesterday
+        return 'Yesterday ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays < 7) {
+        // This week
+        final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return '${weekdays[dateTime.weekday - 1]} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      } else {
+        // More than a week
+        final day = dateTime.day.clamp(1, 31);
+        final month = dateTime.month.clamp(1, 12);
+        return '$day/$month/${dateTime.year}';
+      }
+    } catch (e) {
+      print('Error formatting date: $e');
+      return 'Invalid date';
     }
   }
 
-  void _showChatHistory() {
+  void _showChatHistory() async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -844,16 +913,11 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    // Check if we have any chat sessions loaded
-    if (_chatSessions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No chat history available - start a conversation!'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
+    // Reload chat history before showing
+    await _loadChatHistoryFromFirestore();
+
+    // Always show the dialog, even if empty
+    // The dialog itself will handle the empty state with a nice UI
 
     showModalBottomSheet(
       context: context,
@@ -875,8 +939,9 @@ class _ChatPageState extends State<ChatPage> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -961,7 +1026,9 @@ class _ChatPageState extends State<ChatPage> {
                               leading: CircleAvatar(
                                 backgroundColor: Theme.of(context).primaryColor,
                                 child: Text(
-                                  '${session.lastUpdated.day}',
+                                  session.lastUpdated.day
+                                      .clamp(1, 31)
+                                      .toString(),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -990,10 +1057,24 @@ class _ChatPageState extends State<ChatPage> {
                                   ),
                                 ],
                               ),
-                              trailing: Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
-                                color: Colors.grey[400],
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    onPressed: () =>
+                                        _deleteChatSession(session.id),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: Colors.grey[400],
+                                  ),
+                                ],
                               ),
                               onTap: () {
                                 Navigator.pop(context);
@@ -1009,6 +1090,80 @@ class _ChatPageState extends State<ChatPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteChatSession(String sessionId) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Chat?'),
+        content: const Text(
+          'Are you sure you want to delete this chat? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // Delete the chat session document
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(sessionId)
+          .delete();
+
+      // Reload chat history
+      await _loadChatHistoryFromFirestore();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Chat deleted successfully'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // If deleted current session, start a new one
+        if (sessionId == _currentChatId) {
+          _startNewChat();
+        }
+      }
+    } catch (e) {
+      print('Error deleting chat session: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete chat: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override

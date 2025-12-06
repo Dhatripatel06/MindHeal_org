@@ -2,27 +2,24 @@
 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiService {
-  //
-  // --- ⬇️ UPDATED API KEY ⬇️ ---
-  //
-  final String _apiKey = "AIzaSyD_oHsKdXDTibGft_f4MOaHjm-r1MUHYeQ";
-  //
-  // --- ⬆️ UPDATED API KEY ⬆️ ---
-  //
   // API supports: Gemini 2.5 Pro, 2.5 Flash, 2.0 Flash, 2.0 Flash-Lite, Gemma 3 models
-  //
 
   GenerativeModel? _model;
   final Logger _logger = Logger();
   // Using full model path for maximum compatibility with Google AI API
   final String _modelName = 'models/gemini-2.5-flash';
+  late final String _apiKey;
 
   GeminiService() {
-    if (_apiKey.startsWith("<")) {
-      _logger.e(
-          "API Key not set in gemini_service.dart. Replace AIzaSyDK6KZrkqJRlFoCw4RU06pUNTm-vl69GzQ");
+    // Read API key from .env file
+    _apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+
+    if (_apiKey.isEmpty) {
+      _logger
+          .e("GEMINI_API_KEY not found in .env file. Please set your API key.");
     } else {
       try {
         _model = GenerativeModel(
@@ -43,8 +40,8 @@ class GeminiService {
     required String language,
   }) async {
     if (_model == null) {
-      if (_apiKey.startsWith("<")) {
-        return "Error: API Key not set. Please update gemini_service.dart.";
+      if (_apiKey.isEmpty) {
+        return "Error: GEMINI_API_KEY not set in .env file.";
       }
       _logger.w("Gemini model not initialized, cannot get advice.");
       return "Error: Advice service is currently unavailable (Model init failed).";

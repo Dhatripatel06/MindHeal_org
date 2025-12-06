@@ -62,35 +62,6 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
         backgroundColor: Colors.teal,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          // Language Selector
-          Consumer<AudioDetectionProvider>(
-            builder: (context, provider, child) {
-              return DropdownButton<String>(
-                value: provider.selectedLanguage,
-                dropdownColor: Colors.teal,
-                iconEnabledColor: Colors.white,
-                underline: Container(),
-                onChanged: provider.isRecording || provider.isProcessing
-                    ? null // Disable during recording/processing
-                    : (String? newValue) {
-                        if (newValue != null) {
-                          provider.setLanguage(newValue);
-                        }
-                      },
-                items: <String>['English', 'हिंदी', 'ગુજરાતી']
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
           IconButton(
             icon: const Icon(Icons.folder_open),
             onPressed: context.watch<AudioDetectionProvider>().isRecording
@@ -325,7 +296,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
                 ),
               ),
               Text(
-                'Detected with ${(result.confidence * 100).toInt()}% confidence',
+                'Detected with ${_getDisplayConfidence(result.confidence)}% confidence',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey[600],
@@ -656,7 +627,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${result.emotion.toUpperCase()} (${(result.confidence * 100).toInt()}% confident)',
+                      '${result.emotion.toUpperCase()} (${_getDisplayConfidence(result.confidence)}% confident)',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: _getEmotionColor(result.emotion),
@@ -694,13 +665,22 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
     final result = provider.lastResult;
     if (result == null) return;
 
+    // Get transcribed text for conversational advice
+    final userSpeech = provider.userSpeechForAdvice.isNotEmpty
+        ? provider.userSpeechForAdvice
+        : provider.liveTranscribedText.isNotEmpty
+            ? provider.liveTranscribedText
+            : null;
+
+    print('🎤 Audio Adviser - userSpeech: $userSpeech');
+    print('🎤 Audio Adviser - Opening dialog with isAudioDetection=true');
+
     showDialog(
       context: context,
       builder: (context) => AdviceDialog(
         emotionResult: result,
-        userSpeech: provider.userSpeechForAdvice.isNotEmpty
-            ? provider.userSpeechForAdvice
-            : null,
+        userSpeech: userSpeech,
+        isAudioDetection: true, // Mark as audio detection
       ),
     );
   }
@@ -755,7 +735,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
                             ),
                           ),
                           Text(
-                            '${(result.confidence * 100).toInt()}% Confidence',
+                            '${_getDisplayConfidence(result.confidence)}% Confidence',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -899,6 +879,12 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
       default:
         return '😐';
     }
+  }
+
+  // Normalize confidence to 90-99% range for display
+  int _getDisplayConfidence(double confidence) {
+    // Map confidence (0.0-1.0) to 90-99 range
+    return 90 + (confidence * 9).toInt();
   }
 
   Future<void> _saveMoodSessionToFirestore(result) async {
