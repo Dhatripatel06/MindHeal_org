@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image/image.dart' as img;
 import '../../data/models/emotion_result.dart';
 import '../../onnx_emotion_detection/data/services/onnx_emotion_service.dart';
 import '../../../../core/services/gemini_adviser_service.dart';
@@ -851,8 +853,18 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
     });
 
     try {
+      // Crop the face from the image before analysis
+      Uint8List? faceImageBytes;
+
+      if (_detectedFaces.isNotEmpty) {
+        faceImageBytes =
+            await _cropFaceFromImage(imageFile, _detectedFaces.first);
+      }
+
       // Run inference with ONNX service
-      final result = await _emotionService.detectEmotionsFromFile(imageFile);
+      final result = faceImageBytes != null
+          ? await _emotionService.detectEmotions(faceImageBytes)
+          : await _emotionService.detectEmotionsFromFile(imageFile);
 
       setState(() {
         _lastResult = result;
@@ -865,6 +877,47 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
         _errorMessage = 'Analysis error: $e';
         _isAnalyzing = false;
       });
+    }
+  }
+
+  Future<Uint8List?> _cropFaceFromImage(File imageFile, Face face) async {
+    try {
+      // Read and decode the image
+      final imageBytes = await imageFile.readAsBytes();
+      final image = img.decodeImage(imageBytes);
+
+      if (image == null) {
+        debugPrint('Failed to decode image for cropping');
+        return null;
+      }
+
+      // Get face bounding box with padding
+      final boundingBox = face.boundingBox;
+      final padding = 40; // Add padding around face
+
+      final left = math.max(0, boundingBox.left.toInt() - padding);
+      final top = math.max(0, boundingBox.top.toInt() - padding);
+      final right = math.min(image.width, boundingBox.right.toInt() + padding);
+      final bottom =
+          math.min(image.height, boundingBox.bottom.toInt() + padding);
+
+      final width = right - left;
+      final height = bottom - top;
+
+      // Crop the face region
+      final croppedImage = img.copyCrop(
+        image,
+        x: left,
+        y: top,
+        width: width,
+        height: height,
+      );
+
+      // Encode back to bytes
+      return Uint8List.fromList(img.encodeJpg(croppedImage));
+    } catch (e) {
+      debugPrint('Error cropping face: $e');
+      return null;
     }
   }
 

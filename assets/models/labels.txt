@@ -2,7 +2,7 @@ Anger
 Contempt
 Disgust
 Fear
-Happy
+Happiness
 Neutral
-Sad
+Sadness
 Surprise

@@ -88,24 +88,27 @@ class OnnxEmotionService {
           .map((line) => line.trim())
           .where((line) => line.isNotEmpty)
           .toList();
-      _logger.i('Loaded emotion classes: $_emotionClasses');
+      _logger.i('Loaded emotion classes from file: $_emotionClasses');
       if (_emotionClasses.isEmpty) throw Exception('No classes loaded');
     } catch (e) {
       _logger.w('Failed to load labels from asset, using fallback', error: e);
+      // EmotiEffLib AffectNet 8-class model label order
+      // Source: https://github.com/sb-ai-lab/EmotiEffLib
       _emotionClasses = [
-        'Anger',
-        'Contempt',
-        'Disgust',
-        'Fear',
-        'Happy',
-        'Neutral',
-        'Sad',
-        'Surprise'
+        'Anger', // Index 0
+        'Contempt', // Index 1
+        'Disgust', // Index 2
+        'Fear', // Index 3
+        'Happiness', // Index 4
+        'Neutral', // Index 5
+        'Sadness', // Index 6
+        'Surprise' // Index 7
       ];
     }
   }
 
   double _scaleConfidence(double originalConfidence) {
+    // Scale confidence to 90-99% range for better UX
     return 0.9 + (originalConfidence * 0.09);
   }
 
@@ -120,16 +123,23 @@ class OnnxEmotionService {
     stopwatch.start();
 
     try {
+      _logger.i('🖼️ Starting emotion detection...');
       final preprocessedInput = await _preprocessImage(imageBytes);
+      _logger.i('✅ Image preprocessed (${preprocessedInput.length} values)');
 
       // --- FIX 4: Use _runInference with the correct API ---
       final probabilities = await _runInference(preprocessedInput);
+      _logger.i('✅ Model inference complete');
+      _logger.i('📊 Raw probabilities: $probabilities');
 
       final probabilitiesSoftmax = _softmax(probabilities);
+      _logger.i('📊 Softmax probabilities: $probabilitiesSoftmax');
 
       final emotions = <String, double>{};
       for (int i = 0; i < _emotionClasses.length; i++) {
         emotions[_emotionClasses[i]] = probabilitiesSoftmax[i];
+        _logger.d(
+            '   ${_emotionClasses[i]}: ${(probabilitiesSoftmax[i] * 100).toStringAsFixed(2)}%');
       }
 
       final maxEntry =
@@ -147,7 +157,7 @@ class OnnxEmotionService {
       );
 
       _logger.i(
-          'Emotion detected: ${result.emotion} (Raw: ${(maxEntry.value * 100).toStringAsFixed(1)}%, Scaled: ${(result.confidence * 100).toStringAsFixed(1)}%)');
+          '🎯 Final Result: ${result.emotion} (Raw: ${(maxEntry.value * 100).toStringAsFixed(1)}%, Scaled: ${(result.confidence * 100).toStringAsFixed(1)}%) in ${stopwatch.elapsedMilliseconds}ms');
       return result;
     } catch (e, stackTrace) {
       _logger.e('❌ Emotion detection failed', error: e, stackTrace: stackTrace);
@@ -268,6 +278,7 @@ class OnnxEmotionService {
     Map<String, OrtValue>? outputs;
 
     try {
+      _logger.i('🔧 Creating input tensor with shape: $_inputShape');
       // Create the input tensor
       inputOrt = await OrtValue.fromList(input.toList(), _inputShape);
 
@@ -275,11 +286,15 @@ class OnnxEmotionService {
       final inputNames = _session!.inputNames;
       final outputNames = _session!.outputNames;
 
+      _logger.i('📥 Model input names: $inputNames');
+      _logger.i('📤 Model output names: $outputNames');
+
       if (inputNames.isEmpty) throw Exception("Model has no inputs");
       if (outputNames.isEmpty) throw Exception("Model has no outputs");
 
       final inputs = {inputNames.first: inputOrt};
 
+      _logger.i('⚙️ Running ONNX inference...');
       // Run the model
       outputs = await _session!.run(inputs);
 
@@ -289,6 +304,7 @@ class OnnxEmotionService {
         throw Exception('Model execution returned no outputs');
       }
 
+      _logger.i('✅ Model executed successfully');
       // Get the output data as List
       final outputValue = await outputs[outputNames.first]!.asList();
       final outputData = outputValue;
@@ -301,6 +317,7 @@ class OnnxEmotionService {
       final probabilities =
           (outputData.first as List).map((e) => e as double).toList();
 
+      _logger.i('✅ Got ${probabilities.length} output probabilities');
       if (probabilities.length != _emotionClasses.length) {
         _logger.e(
             'Output mismatch: Model output ${probabilities.length} classes, but labels file has ${_emotionClasses.length}');
