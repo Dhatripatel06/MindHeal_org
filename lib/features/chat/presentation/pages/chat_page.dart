@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../core/services/gemini_adviser_service.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../../../../shared/models/heart_rate_measurement.dart';
@@ -19,6 +21,13 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   final GeminiAdviserService _geminiService = GeminiAdviserService();
   final FirestoreService _firestoreService = FirestoreService();
+
+  // Speech-to-Text and Text-to-Speech
+  late stt.SpeechToText _speech;
+  late FlutterTts _flutterTts;
+  bool _isListening = false;
+  bool _isSpeaking = false;
+  String? _currentSpeakingMessageId;
 
   bool _isLoading = false;
   bool _isSavingEnabled = true; // Toggle for saving chats
@@ -42,8 +51,62 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    _initializeSpeech();
+    _initializeTts();
     _loadChatHistoryFromFirestore();
     _createNewSession();
+  }
+
+  void _initializeSpeech() async {
+    _speech = stt.SpeechToText();
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        print('Speech status: $status');
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        print('Speech error: $error');
+        setState(() => _isListening = false);
+      },
+    );
+    if (!available) {
+      print('Speech recognition not available');
+    }
+  }
+
+  void _initializeTts() async {
+    _flutterTts = FlutterTts();
+
+    // Configure TTS
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      setState(() {
+        _isSpeaking = false;
+        _currentSpeakingMessageId = null;
+      });
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      setState(() {
+        _isSpeaking = false;
+        _currentSpeakingMessageId = null;
+      });
+      print('TTS Error: $msg');
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    _flutterTts.stop();
+    super.dispose();
   }
 
   @override
@@ -273,11 +336,30 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: Row(
               children: [
+                // Microphone button
+                Container(
+                  decoration: BoxDecoration(
+                    color: _isListening
+                        ? Colors.red.withOpacity(0.1)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: IconButton(
+                    onPressed: _toggleListening,
+                    icon: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                    ),
+                    color: _isListening ? Colors.red : Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
-                      hintText: 'Type your message...',
+                      hintText: _isListening
+                          ? 'Listening...'
+                          : 'Type or speak your message...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -315,6 +397,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessageBubble(ChatMessage message) {
+    final messageId = message.timestamp.millisecondsSinceEpoch.toString();
+    final isCurrentlySpeaking =
+        _isSpeaking && _currentSpeakingMessageId == messageId;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -338,22 +424,45 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: message.isUser
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.grey[100],
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  color: message.isUser ? Colors.white : Colors.black87,
-                  fontSize: 16, // Increased font size for better readability
-                  height: 1.4, // Better line spacing
+            child: Column(
+              crossAxisAlignment: message.isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: message.isUser
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    message.text,
+                    style: TextStyle(
+                      color: message.isUser ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
-              ),
+                // Speaker button for AI messages
+                if (!message.isUser) ...[
+                  const SizedBox(height: 4),
+                  IconButton(
+                    icon: Icon(
+                      isCurrentlySpeaking ? Icons.stop_circle : Icons.volume_up,
+                      size: 20,
+                      color:
+                          isCurrentlySpeaking ? Colors.red : Colors.grey[600],
+                    ),
+                    onPressed: () => _toggleSpeech(message.text, messageId),
+                    tooltip: isCurrentlySpeaking ? 'Stop' : 'Read aloud',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ],
             ),
           ),
           if (message.isUser) ...[
@@ -545,6 +654,69 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     _scrollToBottom();
+  }
+
+  void _toggleListening() async {
+    if (_isListening) {
+      // Stop listening
+      await _speech.stop();
+      setState(() => _isListening = false);
+    } else {
+      // Start listening
+      bool available = await _speech.initialize();
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _messageController.text = result.recognizedWords;
+            });
+          },
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 5),
+          cancelOnError: true,
+          partialResults: true,
+          listenMode: stt.ListenMode.confirmation,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech recognition not available'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleSpeech(String text, String messageId) async {
+    if (_isSpeaking && _currentSpeakingMessageId == messageId) {
+      // Stop speaking
+      await _flutterTts.stop();
+      setState(() {
+        _isSpeaking = false;
+        _currentSpeakingMessageId = null;
+      });
+    } else {
+      // Stop any current speech and start new one
+      await _flutterTts.stop();
+
+      // Set language based on selected language
+      if (_selectedLanguage == 'ગુજરાતી') {
+        await _flutterTts.setLanguage("gu-IN");
+      } else if (_selectedLanguage == 'हिन्दी') {
+        await _flutterTts.setLanguage("hi-IN");
+      } else {
+        await _flutterTts.setLanguage("en-US");
+      }
+
+      setState(() {
+        _isSpeaking = true;
+        _currentSpeakingMessageId = messageId;
+      });
+
+      await _flutterTts.speak(text);
+    }
   }
 
   Future<List<EmotionResult>> _getMoodHistory() async {
@@ -1164,13 +1336,6 @@ class _ChatPageState extends State<ChatPage> {
         );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 }
 
