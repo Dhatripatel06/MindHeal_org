@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image/image.dart' as img;
 import '../../data/models/emotion_result.dart';
 import '../../onnx_emotion_detection/data/services/onnx_emotion_service.dart';
-import '../../../../core/services/gemini_adviser_service.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../widgets/advice_dialog.dart';
 
@@ -656,7 +655,7 @@ class _ImageMoodDetectionPageState extends State<ImageMoodDetectionPage>
                 ),
                 _buildActionChip(
                   icon: Icons.psychology_outlined,
-                  label: 'Adviser',
+                  label: 'bff Advice',
                   color: Colors.purple,
                   onTap: () => _getAdvice(result),
                 ),

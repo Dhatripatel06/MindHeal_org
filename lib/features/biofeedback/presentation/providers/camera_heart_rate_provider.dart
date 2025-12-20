@@ -178,8 +178,8 @@ class CameraHeartRateProvider extends ChangeNotifier {
       final int width = image.width;
       final int height = image.height;
       final Uint8List yPlane = image.planes[0].bytes;
-      final Uint8List uPlane = image.planes[2].bytes;
-      final Uint8List vPlane = image.planes[1].bytes;
+      final Uint8List vPlane =
+          image.planes[2].bytes; // Only need V for red channel
 
       // Sample from center region (50x50 pixels)
       final int centerX = width ~/ 2;

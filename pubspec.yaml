@@ -45,6 +45,7 @@ dependencies:
   
   # Utilities for emotion detection
   logger: ^2.0.2+1
+  crypto: ^3.0.3
   
   # Audio & Sensors
   http: ^1.2.1

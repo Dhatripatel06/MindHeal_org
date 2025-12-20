@@ -582,11 +582,136 @@ class _BiofeedbackPageState extends State<BiofeedbackPage>
                     fontSize: 14,
                   ),
                 ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.teal.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.teal,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'How to Use',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildBreathingStep(
+                        '1. Get Comfortable',
+                        'Sit or lie down in a relaxed position',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildBreathingStep(
+                        '2. Watch the Circle',
+                        'As it expands, breathe in slowly through your nose',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildBreathingStep(
+                        '3. Follow the Rhythm',
+                        'As it contracts, breathe out gently through your mouth',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildBreathingStep(
+                        '4. Continue',
+                        'Repeat for 2-5 minutes or until you feel relaxed',
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              color: Colors.amber.shade800,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tip: Practice this exercise before checking your heart rate for more accurate readings',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.amber.shade900,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBreathingStep(String title, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 4,
+          height: 4,
+          margin: const EdgeInsets.only(top: 6, right: 8),
+          decoration: BoxDecoration(
+            color: Colors.teal,
+            shape: BoxShape.circle,
+          ),
+        ),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF2D3748),
+                height: 1.4,
+              ),
+              children: [
+                TextSpan(
+                  text: '$title: ',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: description,
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

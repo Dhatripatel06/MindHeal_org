@@ -67,6 +67,11 @@ class _AudioHealingPageState extends State<AudioHealingPage> {
 
     try {
       print('📂 Loading audio tracks for user: ${user.uid}');
+
+      // Get app directory path
+      final appDir = await getApplicationDocumentsDirectory();
+      final audioDir = Directory('${appDir.path}/audio_tracks');
+
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -79,11 +84,14 @@ class _AudioHealingPageState extends State<AudioHealingPage> {
       setState(() {
         _audioTracks = snapshot.docs.map((doc) {
           final data = doc.data();
-          final filePath = data['filePath'] ?? '';
-          print('📁 Track: ${data['name']}, Path: $filePath');
+          final filename = data['filename'] ?? data['name'] ?? '';
+          // Reconstruct full path using current app directory
+          final filePath = '${audioDir.path}/$filename';
+          print('📁 Track: ${data['name']}, File: $filename, Path: $filePath');
           return {
             'id': doc.id,
             'name': data['name'] ?? 'Unknown',
+            'filename': filename,
             'filePath': filePath,
             'duration': data['duration'] ?? '0:00',
             'uploadedAt': data['uploadedAt'],
@@ -97,7 +105,7 @@ class _AudioHealingPageState extends State<AudioHealingPage> {
         final file = File(track['filePath']);
         final exists = await file.exists();
         if (!exists) {
-          print('⚠️ File missing: ${track['name']} at ${track['filePath']}');
+          print('! File missing: ${track['name']} at ${track['filePath']}');
         } else {
           print('✅ File exists: ${track['name']}');
         }
@@ -196,10 +204,13 @@ class _AudioHealingPageState extends State<AudioHealingPage> {
     }
 
     try {
+      // Extract just the filename from the full path
+      final filename = filePath.split('/').last;
+
       print('💾 Saving track to Firestore...');
       print('   User: ${user.uid}');
       print('   Name: $name');
-      print('   Path: $filePath');
+      print('   Filename: $filename');
       print('   Duration: $duration');
 
       final docRef = await FirebaseFirestore.instance
@@ -208,7 +219,7 @@ class _AudioHealingPageState extends State<AudioHealingPage> {
           .collection('audio_tracks')
           .add({
         'name': name,
-        'filePath': filePath,
+        'filename': filename,
         'duration': duration,
         'uploadedAt': DateTime.now().toIso8601String(),
       });

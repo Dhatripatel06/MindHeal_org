@@ -7,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/biofeedback_provider.dart';
 import '../../../../core/services/firestore_service.dart';
 import '../../../../shared/models/heart_rate_measurement.dart';
+import '../../../mood_detection/data/models/emotion_result.dart';
+import '../../../mood_detection/presentation/widgets/advice_dialog.dart';
 
 class CameraHeartRatePage extends StatefulWidget {
   const CameraHeartRatePage({super.key});
@@ -25,6 +27,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
   List<double> _waveformData = [];
   int _progress = 0;
   String _statusMessage = 'Place finger over camera and flash';
+  bool _measurementComplete = false;
 
   // final SignalProcessingService _signalProcessor = SignalProcessingService(); // Unused for now
   final FirestoreService _firestoreService = FirestoreService();
@@ -111,6 +114,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
 
     setState(() {
       _isMeasuring = true;
+      _measurementComplete = false;
       _progress = 0;
       _currentBPM = 0;
       _confidence = 0.0;
@@ -132,6 +136,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       setState(() {
         _statusMessage = 'Measurement failed: $e';
         _isMeasuring = false;
+        _measurementComplete = false;
       });
     }
   }
@@ -187,6 +192,7 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
     setState(() {
       _isMeasuring = false;
       _statusMessage = 'Measurement complete!';
+      _measurementComplete = true;
     });
 
     // Update provider with measured heart rate
@@ -194,12 +200,8 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       final provider = Provider.of<BiofeedbackProvider>(context, listen: false);
       provider.updateHeartRate(_currentBPM);
 
-      // Save to Firestore
-      _saveHeartRateMeasurement();
+      // Don't auto-save anymore - let user explicitly save
     }
-
-    // Show results
-    _showResultsDialog();
   }
 
   void _showResultsDialog() {
@@ -291,7 +293,23 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         // User not authenticated - data still saved locally via provider
-        print('User not authenticated - skipping Firestore save');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.white),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Please sign in to save measurements'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
         return;
       }
 
@@ -314,14 +332,16 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.cloud_done, color: Colors.white),
+                const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Heart rate saved: $_currentBPM BPM'),
+                  child:
+                      Text('Heart rate saved successfully: $_currentBPM BPM'),
                 ),
               ],
             ),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -369,221 +389,262 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Heart Rate Scanner'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
+        iconTheme: IconThemeData(color: Colors.grey[800]),
+        titleTextStyle: TextStyle(
+          color: Colors.grey[800],
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              Color(0xFF1a1a1a),
-              Colors.black,
-            ],
-          ),
-        ),
-        child: SafeArea(
+      body: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
               // Camera Preview
-              Expanded(
-                flex: 3,
-                child: Container(
-                  margin: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _isMeasuring ? Colors.red : Colors.grey,
-                      width: 3,
+              Container(
+                height: MediaQuery.of(context).size.height * 0.4,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 2,
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
+                  ],
+                  border: Border.all(
+                    color: _isMeasuring
+                        ? Colors.red.withOpacity(0.5)
+                        : Colors.grey.withOpacity(0.3),
+                    width: 2,
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(17),
-                    child: _isInitialized && _cameraController != null
-                        ? Stack(
-                            children: [
-                              CameraPreview(_cameraController!),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _isInitialized && _cameraController != null
+                      ? Stack(
+                          children: [
+                            CameraPreview(_cameraController!),
 
-                              // Overlay with finger guidance
-                              Container(
-                                color: Colors.black.withOpacity(0.7),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      AnimatedBuilder(
-                                        animation: _pulseAnimation,
-                                        builder: (context, child) {
-                                          return Transform.scale(
-                                            scale: _isMeasuring
-                                                ? _pulseAnimation.value
-                                                : 1.0,
-                                            child: Container(
-                                              width: 120,
-                                              height: 120,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: Colors.white,
-                                                  width: 3,
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.fingerprint,
-                                                color: Colors.white,
-                                                size: 60,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        _statusMessage,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ),
+                            // Overlay with finger guidance
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.3),
+                                    Colors.black.withOpacity(0.7),
+                                  ],
                                 ),
                               ),
-                            ],
-                          )
-                        : const Center(
-                            child: CircularProgressIndicator(color: Colors.red),
-                          ),
-                  ),
-                ),
-              ),
-
-              // Measurements Display
-              Expanded(
-                flex: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      // BPM Display
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildMeasurementCard(
-                            'Heart Rate',
-                            '$_currentBPM',
-                            'BPM',
-                            Colors.red,
-                            Icons.favorite,
-                          ),
-                          _buildMeasurementCard(
-                            'Confidence',
-                            '${(_confidence * 100).toInt()}',
-                            '%',
-                            Colors.green,
-                            Icons.check_circle,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Progress Bar
-                      if (_isMeasuring) ...[
-                        AnimatedBuilder(
-                          animation: _progressController,
-                          builder: (context, child) {
-                            return Column(
-                              children: [
-                                LinearProgressIndicator(
-                                  value: _progressController.value,
-                                  backgroundColor: Colors.grey[800],
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          Colors.red),
-                                  minHeight: 8,
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  '$_progress% Complete',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-
-                      const Spacer(),
-
-                      // Start/Stop Button
-                      Container(
-                        width: double.infinity,
-                        height: 60,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        child: ElevatedButton(
-                          onPressed: _isMeasuring ? null : _startMeasurement,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            disabledBackgroundColor: Colors.grey,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: _isMeasuring
-                              ? const Row(
+                              child: Center(
+                                child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
+                                    AnimatedBuilder(
+                                      animation: _pulseAnimation,
+                                      builder: (context, child) {
+                                        return Transform.scale(
+                                          scale: _isMeasuring
+                                              ? _pulseAnimation.value
+                                              : 1.0,
+                                          child: Container(
+                                            width: 100,
+                                            height: 100,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 3,
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              Icons.fingerprint,
+                                              color: Colors.white,
+                                              size: 50,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                    SizedBox(width: 10),
+                                    const SizedBox(height: 20),
                                     Text(
-                                      'Measuring...',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                      _statusMessage,
+                                      style: const TextStyle(
                                         color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
-                                )
-                              : const Text(
-                                  'Start Measurement',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
                                 ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.blue[600],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
+
+              const SizedBox(height: 20),
+
+              // BPM Display Cards
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildMeasurementCard(
+                    'Heart Rate',
+                    '$_currentBPM',
+                    'BPM',
+                    Colors.red,
+                    Icons.favorite,
+                  ),
+                  _buildMeasurementCard(
+                    'Confidence',
+                    '${(_confidence * 100).toInt()}',
+                    '%',
+                    Colors.green,
+                    Icons.check_circle,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Progress Bar
+              if (_isMeasuring) ...[
+                AnimatedBuilder(
+                  animation: _progressController,
+                  builder: (context, child) {
+                    return Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.2),
+                                spreadRadius: 1,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: _progressController.value,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.red),
+                              minHeight: 8,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '$_progress% Complete',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Action Chips (Save) - shown after measurement
+              if (_measurementComplete && !_isMeasuring) ...[
+                Center(
+                  child: _buildActionChip(
+                    icon: Icons.save_outlined,
+                    label: 'Save',
+                    color: Colors.green,
+                    onTap: _saveHeartRateMeasurement,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Start/Stop Button
+              Container(
+                width: double.infinity,
+                height: 56,
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_isMeasuring ? Colors.grey : Colors.red)
+                          .withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _isMeasuring ? null : _startMeasurement,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    disabledBackgroundColor: Colors.grey[400],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isMeasuring
+                      ? const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Measuring...',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text(
+                          'Start Measurement',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -598,51 +659,153 @@ class _CameraHeartRatePageState extends State<CameraHeartRatePage>
     Color color,
     IconData icon,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color.withOpacity(0.3),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 12,
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: color.withOpacity(0.5), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
               ),
-              const SizedBox(width: 4),
-              Text(
-                unit,
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAdviceDialog() {
+    // Determine heart rate category for emotion description
+    String bpmCategory;
+    if (_currentBPM < 60) {
+      bpmCategory = 'Low Heart Rate (Bradycardia)';
+    } else if (_currentBPM <= 100) {
+      bpmCategory = 'Normal Heart Rate';
+    } else if (_currentBPM <= 120) {
+      bpmCategory = 'Elevated Heart Rate';
+    } else {
+      bpmCategory = 'High Heart Rate (Tachycardia)';
+    }
+
+    // Create EmotionResult for heart rate biofeedback
+    final heartRateResult = EmotionResult(
+      emotion: '$_currentBPM BPM - $bpmCategory',
+      confidence: _confidence,
+      allEmotions: {'Heart Rate': _currentBPM.toDouble()},
+      timestamp: DateTime.now(),
+      processingTimeMs: 0,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AdviceDialog(
+        emotionResult: heartRateResult,
+        userSpeech: '''Heart Rate Biofeedback Measurement:
+- Current BPM: $_currentBPM
+- Category: $bpmCategory
+- Confidence: ${(_confidence * 100).toInt()}%
+
+Please provide Ayurvedic and spiritual wellness guidance including:
+1. Dosha balance perspective (Vata, Pitta, Kapha) for this heart rate
+2. Recommended herbs, foods, and dietary practices
+3. Pranayama (breathing exercises) suitable for this heart rate level
+4. Meditation, mantras, and mindfulness techniques for heart health
+5. Yoga poses that support cardiovascular balance
+6. Practical wellness tips and when to seek medical attention if needed''',
+        isAudioDetection: true, // Use conversational style like audio detection
       ),
     );
   }

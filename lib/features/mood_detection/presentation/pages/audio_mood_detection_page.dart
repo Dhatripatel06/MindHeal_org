@@ -319,7 +319,7 @@ class _AudioMoodDetectionPageState extends State<AudioMoodDetectionPage>
                 onPressed: () => _showAdviser(provider),
                 icon: const Icon(Icons.psychology, size: 24),
                 label: const Text(
-                  'Get Advice',
+                  'bff Advice',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
