@@ -7,18 +7,18 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:934484241138:android:4f6596e1c6c0dd049afe6b",
+        "mobilesdk_app_id": "1:934484241138:android:33eff38884886e079afe6b",
         "android_client_info": {
           "package_name": "com.mentalwellness.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "934484241138-jvd3ve6p6h0or2kqbsgfs2ure837k675.apps.googleusercontent.com",
+          "client_id": "934484241138-2ea0tjks3o97jg8k7rqa9i340aauk25t.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.mentalwellness.app",
-            "certificate_hash": "15fe8c7189b3d8f8e11f1f5c99a363ad61cd0a94"
+            "certificate_hash": "4c4ae6f5bb0ef07ecf4cd66781e7281f04527204"
           }
         },
         {
