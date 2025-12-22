@@ -68,6 +68,8 @@ dependencies:
   shared_preferences: ^2.2.2
   connectivity_plus: ^7.0.0
   device_info_plus: ^10.1.0
+  url_launcher: ^6.3.1
+  mailer: ^6.1.2
   
   
   # Update Google ML Kit packages to latest compatible versions (for pose/face detection if needed)

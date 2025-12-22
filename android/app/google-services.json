@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "934484241138-k4g6m28h4agmj9v6tjiov92gp4v8c2sb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mentalwellness.app",
+            "certificate_hash": "15fe8c7189b3d8f8e11f1f5c99a363ad61cd0a94"
+          }
+        },
+        {
           "client_id": "934484241138-klno99cg01iiildql4lfkpc76qh2bjqj.apps.googleusercontent.com",
           "client_type": 3
         }

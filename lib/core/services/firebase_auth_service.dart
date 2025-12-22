@@ -9,9 +9,6 @@ class FirebaseAuthService {
       'email',
       'profile',
     ],
-    // Add client ID for better Android compatibility
-    clientId:
-        '934484241138-klno99cg01iiildql4lfkpc76qh2bjqj.apps.googleusercontent.com',
   );
 
   // Stream of auth state changes
@@ -57,10 +54,8 @@ class FirebaseAuthService {
   // Sign in with Google
   Future<User?> signInWithGoogle() async {
     try {
-      // Ensure Google Sign-In is available
-      if (!await _googleSignIn.isSignedIn()) {
-        await _googleSignIn.signOut(); // Clear any cached state
-      }
+      // Sign out first to clear any cached state
+      await _googleSignIn.signOut();
 
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -87,6 +82,12 @@ class FirebaseAuthService {
     } on FirebaseAuthException catch (e) {
       throw Exception('Firebase Auth error: ${e.code} - ${e.message}');
     } catch (e) {
+      // Check for specific Google Sign-In errors
+      if (e.toString().contains('12500') ||
+          e.toString().contains('SIGN_IN_FAILED')) {
+        throw Exception(
+            'Google Sign-In configuration error. Please ensure SHA-1 certificate is added to Firebase Console.');
+      }
       throw Exception('Google sign in failed: $e');
     }
   }

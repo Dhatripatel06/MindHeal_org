@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/features/auth/presentation/providers/auth_provider.dart';
+import 'feedback_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -98,8 +99,8 @@ class ProfilePage extends StatelessWidget {
                           title: const Text('Member Since'),
                           subtitle: Text(
                             user.metadata.creationTime?.toString().split(
-                                  ' ',
-                                )[0] ??
+                                      ' ',
+                                    )[0] ??
                                 'Unknown',
                           ),
                         ),
@@ -158,6 +159,19 @@ class ProfilePage extends StatelessWidget {
                           trailing: const Icon(Icons.arrow_forward_ios),
                           onTap: () {
                             _showChangePasswordDialog(context, authProvider);
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.feedback_outlined),
+                          title: const Text('Send Feedback'),
+                          trailing: const Icon(Icons.arrow_forward_ios),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const FeedbackPage(),
+                              ),
+                            );
                           },
                         ),
                       ],
